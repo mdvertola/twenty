@@ -24,7 +24,6 @@ import { DataSourceModule } from 'src/engine/metadata-modules/data-source/data-s
 import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
 import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
-import { DeletedWorkspaceMemberTranspiler } from 'src/engine/core-modules/user/services/deleted-workspace-member-transpiler.service';
 
 import { userAutoResolverOpts } from './user.auto-resolver-opts';
 
@@ -54,12 +53,11 @@ import { UserService } from './services/user.service';
     PermissionsModule,
     UserWorkspaceModule,
   ],
-  exports: [UserService, DeletedWorkspaceMemberTranspiler],
+  exports: [UserService],
   providers: [
     UserService,
     UserResolver,
     TypeORMService,
-    DeletedWorkspaceMemberTranspiler,
   ],
 })
 export class UserModule {}
