@@ -27,6 +27,7 @@ import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.
 
 import { userAutoResolverOpts } from './user.auto-resolver-opts';
 
+import { WorkspaceMemberTranspiler } from 'src/engine/core-modules/user/services/workspace-member-transpiler.service';
 import { UserService } from './services/user.service';
 
 @Module({
@@ -53,7 +54,12 @@ import { UserService } from './services/user.service';
     PermissionsModule,
     UserWorkspaceModule,
   ],
-  exports: [UserService],
-  providers: [UserService, UserResolver, TypeORMService],
+  exports: [UserService, WorkspaceMemberTranspiler],
+  providers: [
+    UserService,
+    UserResolver,
+    TypeORMService,
+    WorkspaceMemberTranspiler,
+  ],
 })
 export class UserModule {}
