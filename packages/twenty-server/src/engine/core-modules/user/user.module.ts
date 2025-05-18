@@ -54,10 +54,6 @@ import { UserService } from './services/user.service';
     UserWorkspaceModule,
   ],
   exports: [UserService],
-  providers: [
-    UserService,
-    UserResolver,
-    TypeORMService,
-  ],
+  providers: [UserService, UserResolver, TypeORMService],
 })
 export class UserModule {}

@@ -127,7 +127,7 @@ export class UserResolver {
         : this.permissionsService.getDefaultUserWorkspacePermissions();
 
     const grantedSettingsPermissions = (
-      Object.keys(objectRecordsPermissions) as SettingPermissionType[]
+      Object.keys(settingsPermissions) as SettingPermissionType[]
     ).filter((feature) => settingsPermissions[feature] === true);
 
     const grantedObjectRecordsPermissions = (
@@ -245,8 +245,7 @@ export class UserResolver {
         workspaceId: workspace.id,
       });
 
-    // TODO finder better name
-    const findBetterName =
+    const toWorkspaceMemberDtoArgs =
       workspaceMemberEntities.map<ToWorkspaceMemberDtoArgs>(
         (workspaceMemberEntity) => {
           const userWorkspace = userWorkspacesByUserIdMap.get(
@@ -264,7 +263,7 @@ export class UserResolver {
           );
 
           if (!isDefined(userWorkspaceRoles)) {
-            throw new Error('User workspace not found');
+            throw new Error('User workspace roles not found');
           }
 
           return {
@@ -275,7 +274,9 @@ export class UserResolver {
         },
       );
 
-    return this.workspaceMemberTranspiler.toWorkspaceMemberDtos(findBetterName);
+    return this.workspaceMemberTranspiler.toWorkspaceMemberDtos(
+      toWorkspaceMemberDtoArgs,
+    );
   }
 
   @ResolveField(() => [DeletedWorkspaceMember], {

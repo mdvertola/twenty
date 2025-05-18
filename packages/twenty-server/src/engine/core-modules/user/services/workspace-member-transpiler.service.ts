@@ -82,7 +82,9 @@ export class WorkspaceMemberTranspiler {
   toWorkspaceMemberDtos(
     allWorkspaceEntitiesBundles: ToWorkspaceMemberDtoArgs[],
   ) {
-    return allWorkspaceEntitiesBundles.map(this.toWorkspaceMemberDto);
+    return allWorkspaceEntitiesBundles.map((bundle) =>
+      this.toWorkspaceMemberDto(bundle),
+    );
   }
 
   toDeletedWorkspaceMemberDto(
