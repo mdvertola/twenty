@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isNonEmptyString } from '@sniptt/guards';
 
 import { FileService } from 'src/engine/core-modules/file/services/file.service';
 import { extractFilenameFromPath } from 'src/engine/core-modules/file/utils/extract-file-id-from-path.utils';
@@ -12,7 +13,7 @@ import {
   WorkspaceMemberTimeFormatEnum,
   WorkspaceMemberWorkspaceEntity,
 } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
-import { buildSignedPath } from 'twenty-shared/utils';
+import { buildSignedPath, isDefined } from 'twenty-shared/utils';
 
 export type ToWorkspaceMemberDtoArgs = {
   workspaceMemberEntity: WorkspaceMemberWorkspaceEntity;
@@ -30,7 +31,14 @@ export class WorkspaceMemberTranspiler {
   }: {
     workspaceMember: Pick<WorkspaceMemberWorkspaceEntity, 'avatarUrl' | 'id'>;
     workspaceId: string;
-  }): string {
+  }): string | null {
+    if (
+      !isDefined(workspaceMember.avatarUrl) ||
+      !isNonEmptyString(workspaceMember.avatarUrl)
+    ) {
+      return null;
+    }
+
     const signedPayload = this.fileService.encodeFileToken({
       filename: extractFilenameFromPath(workspaceMember.avatarUrl),
       workspaceId,
@@ -69,10 +77,12 @@ export class WorkspaceMemberTranspiler {
 
     const roles = fromRoleEntitiesToRoleDtos(userWorkspaceRoles);
 
+    // @ts-expect-error TODO determine if we should type the avatarUrl as string | null
     return {
       id,
       name,
       userEmail,
+      // @ts-expect-error TODO determine if we should type the avatarUrl as string | null
       avatarUrl,
       userWorkspaceId: userWorkspace.id,
       colorScheme,
