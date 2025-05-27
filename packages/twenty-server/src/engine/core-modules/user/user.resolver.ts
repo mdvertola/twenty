@@ -25,10 +25,8 @@ import {
   AuthException,
   AuthExceptionCode,
 } from 'src/engine/core-modules/auth/auth.exception';
-import { DomainManagerService } from 'src/engine/core-modules/domain-manager/services/domain-manager.service';
 import { SignedFileDTO } from 'src/engine/core-modules/file/file-upload/dtos/signed-file.dto';
 import { FileUploadService } from 'src/engine/core-modules/file/file-upload/services/file-upload.service';
-import { FileService } from 'src/engine/core-modules/file/services/file.service';
 import { OnboardingStatus } from 'src/engine/core-modules/onboarding/enums/onboarding-status.enum';
 import {
   OnboardingService,
@@ -42,7 +40,7 @@ import { WorkspaceMember } from 'src/engine/core-modules/user/dtos/workspace-mem
 import { UserService } from 'src/engine/core-modules/user/services/user.service';
 import {
   ToWorkspaceMemberDtoArgs,
-  WorkspaceMemberTranspiler
+  WorkspaceMemberTranspiler,
 } from 'src/engine/core-modules/user/services/workspace-member-transpiler.service';
 import { UserVarsService } from 'src/engine/core-modules/user/user-vars/services/user-vars.service';
 import { User } from 'src/engine/core-modules/user/user.entity';
@@ -78,8 +76,6 @@ export class UserResolver {
     private readonly fileUploadService: FileUploadService,
     private readonly onboardingService: OnboardingService,
     private readonly userVarService: UserVarsService,
-    private readonly fileService: FileService,
-    private readonly domainManagerService: DomainManagerService,
     @InjectRepository(UserWorkspace, 'core')
     private readonly userWorkspaceRepository: Repository<UserWorkspace>,
     private readonly userRoleService: UserRoleService,
@@ -203,7 +199,6 @@ export class UserResolver {
       throw new Error('User workspace roles not found');
     }
 
-    // TODO new now computing roles here too
     return this.workspaceMemberTranspiler.toWorkspaceMemberDto({
       workspaceMemberEntity,
       userWorkspace,
@@ -252,12 +247,10 @@ export class UserResolver {
             workspaceMemberEntity.userId,
           );
 
-          // TODO Should ignore ?
           if (!isDefined(userWorkspace)) {
             throw new Error('User workspace not found');
           }
 
-          // TODO Should ignore ?
           const userWorkspaceRoles = rolesByUserWorkspacesMap.get(
             userWorkspace.id,
           );
