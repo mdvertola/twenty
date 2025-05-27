@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { FileService } from 'src/engine/core-modules/file/services/file.service';
+import { extractFilenameFromPath } from 'src/engine/core-modules/file/utils/extract-file-id-from-path.utils';
 import { UserWorkspace } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
 import { DeletedWorkspaceMember } from 'src/engine/core-modules/user/dtos/deleted-workspace-member.dto';
 import { WorkspaceMember } from 'src/engine/core-modules/user/dtos/workspace-member.dto';
@@ -11,6 +12,7 @@ import {
   WorkspaceMemberTimeFormatEnum,
   WorkspaceMemberWorkspaceEntity,
 } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
+import { buildSignedPath } from 'twenty-shared/utils';
 
 export type ToWorkspaceMemberDtoArgs = {
   workspaceMemberEntity: WorkspaceMemberWorkspaceEntity;
@@ -22,19 +24,22 @@ export type ToWorkspaceMemberDtoArgs = {
 export class WorkspaceMemberTranspiler {
   constructor(private readonly fileService: FileService) {}
 
-  private generateSignedAvatarUrl({
+  generateSignedAvatarUrl({
     workspaceId,
     workspaceMember,
   }: {
     workspaceMember: Pick<WorkspaceMemberWorkspaceEntity, 'avatarUrl' | 'id'>;
     workspaceId: string;
   }): string {
-    const avatarUrlToken = this.fileService.encodeFileToken({
-      workspaceMemberId: workspaceMember.id,
-      workspaceId: workspaceId,
+    const signedPayload = this.fileService.encodeFileToken({
+      filename: extractFilenameFromPath(workspaceMember.avatarUrl),
+      workspaceId,
     });
 
-    return `${workspaceMember.avatarUrl}?token=${avatarUrlToken}`;
+    return buildSignedPath({
+      path: workspaceMember.avatarUrl,
+      token: signedPayload,
+    });
   }
 
   toWorkspaceMemberDto({
