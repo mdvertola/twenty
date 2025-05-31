@@ -34,7 +34,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=main-test,enable={{is_default_branch}}
+            type=raw,value=v0.57.4
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
