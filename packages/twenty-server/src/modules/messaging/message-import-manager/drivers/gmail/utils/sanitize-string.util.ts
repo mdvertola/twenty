@@ -22,11 +22,14 @@ export const sanitizeEmailAddress = (email: string): string => {
   
   // Ensure proper email format
   const parts = sanitized.split('@');
-  if (parts.length !== 2) return sanitized;
+  if (parts.length !== 2) return '';
   
   // Sanitize local part and domain separately
   const localPart = parts[0].replace(/[^\w.!#$%&'*+/=?^`{|}~-]/g, '');
   const domain = parts[1].replace(/[^\w.-]/g, '');
+  
+  // Return empty string if either part is empty after sanitization
+  if (!localPart || !domain) return '';
   
   return `${localPart}@${domain}`.toLowerCase();
 };
