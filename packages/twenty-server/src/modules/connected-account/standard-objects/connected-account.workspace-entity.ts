@@ -2,12 +2,13 @@ import { msg } from '@lingui/core/macro';
 import {
   ConnectedAccountProvider,
   FieldMetadataType,
+  RelationOnDeleteAction,
 } from 'twenty-shared/types';
 
-import { RelationOnDeleteAction } from 'src/engine/metadata-modules/field-metadata/interfaces/relation-on-delete-action.interface';
 import { RelationType } from 'src/engine/metadata-modules/field-metadata/interfaces/relation-type.interface';
 import { Relation } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/relation.interface';
 
+import { type ImapSmtpCaldavParams } from 'src/engine/core-modules/imap-smtp-caldav-connection/types/imap-smtp-caldav-connection.type';
 import { BaseWorkspaceEntity } from 'src/engine/twenty-orm/base.workspace-entity';
 import { WorkspaceEntity } from 'src/engine/twenty-orm/decorators/workspace-entity.decorator';
 import { WorkspaceField } from 'src/engine/twenty-orm/decorators/workspace-field.decorator';
@@ -24,6 +25,7 @@ import { WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/sta
 
 @WorkspaceEntity({
   standardId: STANDARD_OBJECT_IDS.connectedAccount,
+
   namePlural: 'connectedAccounts',
   labelSingular: msg`Connected Account`,
   labelPlural: msg`Connected Accounts`,
@@ -70,6 +72,16 @@ export class ConnectedAccountWorkspaceEntity extends BaseWorkspaceEntity {
   refreshToken: string;
 
   @WorkspaceField({
+    standardId: CONNECTED_ACCOUNT_STANDARD_FIELD_IDS.lastCredentialsRefreshedAt,
+    type: FieldMetadataType.DATE_TIME,
+    label: msg`Last credentials refreshed at`,
+    description: msg`Last credentials refreshed at`,
+    icon: 'IconHistory',
+  })
+  @WorkspaceIsNullable()
+  lastCredentialsRefreshedAt: Date | null;
+
+  @WorkspaceField({
     standardId: CONNECTED_ACCOUNT_STANDARD_FIELD_IDS.lastSyncHistoryId,
     type: FieldMetadataType.TEXT,
     label: msg`Last sync history ID`,
@@ -106,6 +118,16 @@ export class ConnectedAccountWorkspaceEntity extends BaseWorkspaceEntity {
   })
   @WorkspaceIsNullable()
   scopes: string[] | null;
+
+  @WorkspaceField({
+    standardId: CONNECTED_ACCOUNT_STANDARD_FIELD_IDS.connectionParameters,
+    type: FieldMetadataType.RAW_JSON,
+    label: msg`Custom Connection Parameters`,
+    description: msg`JSON object containing custom connection parameters`,
+    icon: 'IconSettings',
+  })
+  @WorkspaceIsNullable()
+  connectionParameters: ImapSmtpCaldavParams | null;
 
   @WorkspaceRelation({
     standardId: CONNECTED_ACCOUNT_STANDARD_FIELD_IDS.accountOwner,

@@ -1,5 +1,6 @@
 import { useTheme } from '@emotion/react';
 import { useLingui } from '@lingui/react/macro';
+import { CustomError } from 'twenty-shared/utils';
 
 import { ConfigSource } from '~/generated/graphql';
 
@@ -11,12 +12,12 @@ export const useSourceContent = (source: ConfigSource) => {
     case ConfigSource.DATABASE:
       return {
         text: t`Stored in database`,
-        color: theme.color.blue50,
+        color: theme.color.blue10,
       };
     case ConfigSource.ENVIRONMENT:
       return {
         text: t`Environment variable`,
-        color: theme.color.green50,
+        color: theme.color.green10,
       };
     case ConfigSource.DEFAULT:
       return {
@@ -24,6 +25,6 @@ export const useSourceContent = (source: ConfigSource) => {
         color: theme.font.color.tertiary,
       };
     default:
-      throw new Error(`Unknown source: ${source}`);
+      throw new CustomError(`Unknown source: ${source}`, 'UNKNOWN_SOURCE');
   }
 };

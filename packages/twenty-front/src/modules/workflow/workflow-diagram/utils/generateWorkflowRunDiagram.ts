@@ -1,33 +1,44 @@
 import {
-  WorkflowRunOutputStepsOutput,
-  WorkflowStep,
-  WorkflowTrigger,
+  type WorkflowStep,
+  type WorkflowTrigger,
 } from '@/workflow/types/Workflow';
-import { FIRST_NODE_POSITION } from '@/workflow/workflow-diagram/constants/FirstNodePosition';
-import { VERTICAL_DISTANCE_BETWEEN_TWO_NODES } from '@/workflow/workflow-diagram/constants/VerticalDistanceBetweenTwoNodes';
-import { WORKFLOW_VISUALIZER_EDGE_DEFAULT_CONFIGURATION } from '@/workflow/workflow-diagram/constants/WorkflowVisualizerEdgeDefaultConfiguration';
-import { WORKFLOW_VISUALIZER_EDGE_SUCCESS_CONFIGURATION } from '@/workflow/workflow-diagram/constants/WorkflowVisualizerEdgeSuccessConfiguration';
 import {
-  WorkflowDiagramRunStatus,
-  WorkflowRunDiagram,
-  WorkflowRunDiagramEdge,
-  WorkflowRunDiagramNode,
-  WorkflowRunDiagramNodeData,
-  WorkflowRunDiagramStepNodeData,
+  type WorkflowDiagramEdgeData,
+  type WorkflowDiagramEdgeType,
+  type WorkflowRunDiagram,
+  type WorkflowRunDiagramNode,
+  type WorkflowRunDiagramStepNodeData,
 } from '@/workflow/workflow-diagram/types/WorkflowDiagram';
-import { getWorkflowDiagramTriggerNode } from '@/workflow/workflow-diagram/utils/getWorkflowDiagramTriggerNode';
-import { TRIGGER_STEP_ID } from '@/workflow/workflow-trigger/constants/TriggerStepId';
+import { generateWorkflowDiagram } from '@/workflow/workflow-diagram/utils/generateWorkflowDiagram';
+import { isStepNode } from '@/workflow/workflow-diagram/utils/isStepNode';
 import { isDefined } from 'twenty-shared/utils';
-import { v4 } from 'uuid';
+import { StepStatus, type WorkflowRunStepInfos } from 'twenty-shared/workflow';
+
+const shouldOpenStep = ({
+  nodeId,
+  steps,
+  stepInfos,
+}: {
+  nodeId: string;
+  steps: Array<WorkflowStep>;
+  stepInfos: WorkflowRunStepInfos | undefined;
+}) => {
+  const step = steps.find((step) => step.id === nodeId);
+  const stepInfo = stepInfos?.[nodeId];
+  const isStepPending = isDefined(stepInfo) && stepInfo.status === 'PENDING';
+  const isStepOpenable = isDefined(step) && ['FORM'].includes(step.type);
+
+  return isStepPending && isStepOpenable;
+};
 
 export const generateWorkflowRunDiagram = ({
   trigger,
   steps,
-  stepsOutput,
+  stepInfos,
 }: {
   trigger: WorkflowTrigger;
   steps: Array<WorkflowStep>;
-  stepsOutput: WorkflowRunOutputStepsOutput | undefined;
+  stepInfos: WorkflowRunStepInfos | undefined;
 }): {
   diagram: WorkflowRunDiagram;
   stepToOpenByDefault:
@@ -44,124 +55,72 @@ export const generateWorkflowRunDiagram = ({
       }
     | undefined = undefined;
 
-  const triggerBase = getWorkflowDiagramTriggerNode({ trigger });
+  const workflowDiagram = generateWorkflowDiagram({
+    trigger,
+    steps,
+    workflowContext: 'workflow-run',
+  });
 
-  const nodes: Array<WorkflowRunDiagramNode> = [
-    {
-      ...triggerBase,
-      data: {
-        ...triggerBase.data,
-        runStatus: 'success',
-      },
-    },
-  ];
-  const edges: Array<WorkflowRunDiagramEdge> = [];
+  const workflowRunDiagramNodes: WorkflowRunDiagramNode[] =
+    workflowDiagram.nodes.filter(isStepNode).map((node) => {
+      const nodeId = node.id;
 
-  const processNode = ({
-    stepIndex,
-    parentNodeId,
-    parentRunStatus,
-    xPos,
-    yPos,
-    skippedExecution,
-  }: {
-    stepIndex: number;
-    parentNodeId: string;
-    parentRunStatus: WorkflowDiagramRunStatus;
-    xPos: number;
-    yPos: number;
-    skippedExecution: boolean;
-  }) => {
-    const step = steps.at(stepIndex);
-    if (!isDefined(step)) {
-      return;
-    }
+      const stepInfo = stepInfos?.[nodeId];
 
-    const nodeId = step.id;
-
-    if (parentRunStatus === 'success') {
-      edges.push({
-        ...WORKFLOW_VISUALIZER_EDGE_SUCCESS_CONFIGURATION,
-        id: v4(),
-        source: parentNodeId,
-        target: nodeId,
-      });
-    } else {
-      edges.push({
-        ...WORKFLOW_VISUALIZER_EDGE_DEFAULT_CONFIGURATION,
-        id: v4(),
-        source: parentNodeId,
-        target: nodeId,
-      });
-    }
-
-    const runResult = stepsOutput?.[nodeId];
-    const isPendingFormAction =
-      step.type === 'FORM' &&
-      isDefined(runResult?.pendingEvent) &&
-      runResult.pendingEvent;
-
-    let runStatus: WorkflowDiagramRunStatus;
-    if (skippedExecution) {
-      runStatus = 'not-executed';
-    } else if (!isDefined(runResult) || isPendingFormAction) {
-      runStatus = 'running';
-    } else {
-      if (isDefined(runResult.error)) {
-        runStatus = 'failure';
-      } else {
-        runStatus = 'success';
+      if (!isDefined(stepInfo)) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            runStatus: StepStatus.NOT_STARTED,
+          },
+        };
       }
-    }
 
-    const nodeData: WorkflowRunDiagramNodeData = {
-      nodeType: 'action',
-      actionType: step.type,
-      name: step.name,
-      runStatus,
-    };
+      const nodeData = {
+        ...node.data,
+        runStatus: stepInfo.status,
+      };
 
-    nodes.push({
-      id: nodeId,
-      data: nodeData,
-      position: {
-        x: xPos,
-        y: yPos,
-      },
-    });
+      if (
+        !isDefined(stepToOpenByDefault) &&
+        shouldOpenStep({ nodeId, stepInfos, steps })
+      ) {
+        stepToOpenByDefault = { id: nodeId, data: nodeData };
+      }
 
-    if (isPendingFormAction) {
-      stepToOpenByDefault = {
-        id: nodeId,
+      return {
+        ...node,
         data: nodeData,
       };
+    });
+
+  const workflowRunDiagramEdges = workflowDiagram.edges.map((edge) => {
+    const parentNode = workflowRunDiagramNodes.find(
+      (node) => node.id === edge.source,
+    );
+
+    if (!isDefined(parentNode)) {
+      throw new Error('Expected the edge to have a parent node');
     }
 
-    processNode({
-      stepIndex: stepIndex + 1,
-      parentNodeId: nodeId,
-      parentRunStatus: runStatus,
-      xPos,
-      yPos: yPos + VERTICAL_DISTANCE_BETWEEN_TWO_NODES,
-      skippedExecution: skippedExecution
-        ? true
-        : runStatus === 'failure' || runStatus === 'running',
-    });
-  };
+    const stepInfo = stepInfos?.[parentNode.id];
 
-  processNode({
-    stepIndex: 0,
-    parentNodeId: TRIGGER_STEP_ID,
-    parentRunStatus: 'success',
-    xPos: FIRST_NODE_POSITION.x,
-    yPos: FIRST_NODE_POSITION.y,
-    skippedExecution: false,
+    return {
+      ...edge,
+      type: 'readonly' satisfies WorkflowDiagramEdgeType,
+      data: {
+        ...edge.data,
+        edgeType: 'default',
+        edgeExecutionStatus: stepInfo?.status ?? StepStatus.NOT_STARTED,
+      } satisfies WorkflowDiagramEdgeData,
+    };
   });
 
   return {
     diagram: {
-      nodes,
-      edges,
+      nodes: workflowRunDiagramNodes,
+      edges: workflowRunDiagramEdges,
     },
     stepToOpenByDefault,
   };

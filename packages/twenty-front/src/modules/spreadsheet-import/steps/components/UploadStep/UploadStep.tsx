@@ -1,11 +1,12 @@
 import styled from '@emotion/styled';
 import { useCallback, useState } from 'react';
-import { WorkBook } from 'xlsx-ugnis';
+import { type WorkBook } from 'xlsx-ugnis';
 
 import { Modal } from '@/ui/layout/modal/components/Modal';
 
+import { useComputeColumnSuggestionsAndAutoMatch } from '@/spreadsheet-import/hooks/useComputeColumnSuggestionsAndAutoMatch';
 import { useSpreadsheetImportInternal } from '@/spreadsheet-import/hooks/useSpreadsheetImportInternal';
-import { SpreadsheetImportStep } from '@/spreadsheet-import/steps/types/SpreadsheetImportStep';
+import { type SpreadsheetImportStep } from '@/spreadsheet-import/steps/types/SpreadsheetImportStep';
 import { SpreadsheetImportStepType } from '@/spreadsheet-import/steps/types/SpreadsheetImportStepType';
 import { exceedsMaxRecords } from '@/spreadsheet-import/utils/exceedsMaxRecords';
 import { mapWorkbook } from '@/spreadsheet-import/utils/mapWorkbook';
@@ -36,6 +37,9 @@ export const UploadStep = ({
   const { maxRecords, uploadStepHook, selectHeaderStepHook, selectHeader } =
     useSpreadsheetImportInternal();
 
+  const computeColumnSuggestionsAndAutoMatch =
+    useComputeColumnSuggestionsAndAutoMatch();
+
   const handleContinue = useCallback(
     async (workbook: WorkBook, file: File) => {
       setUploadedFile(file);
@@ -62,6 +66,11 @@ export const UploadStep = ({
 
             const { importedRows: data, headerRow: headerValues } =
               await selectHeaderStepHook(mappedWorkbook[0], trimmedData);
+
+            await computeColumnSuggestionsAndAutoMatch({
+              headerValues,
+              data,
+            });
 
             setCurrentStepState({
               type: SpreadsheetImportStepType.matchColumns,
@@ -92,6 +101,7 @@ export const UploadStep = ({
       setUploadedFile,
       currentStepState,
       uploadStepHook,
+      computeColumnSuggestionsAndAutoMatch,
     ],
   );
 

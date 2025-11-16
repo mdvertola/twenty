@@ -7,17 +7,36 @@ type FeatureFlagMetadata = {
 };
 
 export type PublicFeatureFlag = {
-  key: Extract<FeatureFlagKey, FeatureFlagKey.IS_WORKFLOW_ENABLED>;
+  key: FeatureFlagKey;
   metadata: FeatureFlagMetadata;
 };
 
 export const PUBLIC_FEATURE_FLAGS: PublicFeatureFlag[] = [
   {
-    key: FeatureFlagKey.IS_WORKFLOW_ENABLED,
+    key: FeatureFlagKey.IS_IMAP_SMTP_CALDAV_ENABLED,
     metadata: {
-      label: 'Workflows',
-      description: 'Create custom workflows to automate your work.',
-      imagePath: 'https://twenty.com/images/lab/is-workflow-enabled.png',
+      label: 'IMAP, SMTP, CalDAV',
+      description:
+        'Easily add email accounts from any provider that supports IMAP, send emails with SMTP (and soon, sync calendars with CalDAV)',
+      imagePath:
+        'https://twenty.com/images/lab/is-imap-smtp-caldav-enabled.png',
+    },
+  },
+  {
+    key: FeatureFlagKey.IS_MESSAGE_FOLDER_CONTROL_ENABLED,
+    metadata: {
+      label: 'Message Folder Control',
+      description: 'Control which folders are synced',
+      imagePath:
+        'https://twenty.com/images/lab/is-message-folder-control-enabled.png',
+    },
+  },
+  {
+    key: FeatureFlagKey.IS_PAGE_LAYOUT_ENABLED,
+    metadata: {
+      label: 'Dashboards',
+      description: 'Enable dashboards',
+      imagePath: 'https://twenty.com/images/lab/is-dashboards-enabled.png',
     },
   },
   ...(process.env.CLOUDFLARE_API_KEY

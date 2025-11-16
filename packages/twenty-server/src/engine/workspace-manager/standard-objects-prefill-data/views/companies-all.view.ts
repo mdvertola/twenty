@@ -1,6 +1,8 @@
-import { ObjectMetadataStandardIdToIdMap } from 'src/engine/metadata-modules/object-metadata/interfaces/object-metadata-standard-id-to-id-map';
+import { msg } from '@lingui/core/macro';
 
 import { AggregateOperations } from 'src/engine/api/graphql/graphql-query-runner/constants/aggregate-operations.constant';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { DEFAULT_VIEW_FIELD_SIZE } from 'src/engine/workspace-manager/standard-objects-prefill-data/views/constants/DEFAULT_VIEW_FIELD_SIZE';
 import {
   BASE_OBJECT_STANDARD_FIELD_IDS,
   COMPANY_STANDARD_FIELD_IDS,
@@ -8,12 +10,20 @@ import {
 import { STANDARD_OBJECT_IDS } from 'src/engine/workspace-manager/workspace-sync-metadata/constants/standard-object-ids';
 
 export const companiesAllView = (
-  objectMetadataStandardIdToIdMap: ObjectMetadataStandardIdToIdMap,
+  objectMetadataItems: ObjectMetadataEntity[],
+  useCoreNaming = false,
 ) => {
+  const companyObjectMetadata = objectMetadataItems.find(
+    (object) => object.standardId === STANDARD_OBJECT_IDS.company,
+  );
+
+  if (!companyObjectMetadata) {
+    throw new Error('Company object metadata not found');
+  }
+
   return {
-    name: 'All Companies',
-    objectMetadataId:
-      objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].id,
+    name: useCoreNaming ? msg`All {objectLabelPlural}` : 'All Companies',
+    objectMetadataId: companyObjectMetadata.id ?? '',
     type: 'table',
     key: 'INDEX',
     position: 0,
@@ -23,18 +33,19 @@ export const companiesAllView = (
     fields: [
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.name
-          ],
+          companyObjectMetadata.fields.find(
+            (field) => field.standardId === COMPANY_STANDARD_FIELD_IDS.name,
+          )?.id ?? '',
         position: 0,
         isVisible: true,
-        size: 180,
+        size: DEFAULT_VIEW_FIELD_SIZE,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.domainName
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === COMPANY_STANDARD_FIELD_IDS.domainName,
+          )?.id ?? '',
         position: 1,
         isVisible: true,
         size: 100,
@@ -42,36 +53,40 @@ export const companiesAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.createdBy
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === COMPANY_STANDARD_FIELD_IDS.createdBy,
+          )?.id ?? '',
         position: 2,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.accountOwner
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === COMPANY_STANDARD_FIELD_IDS.accountOwner,
+          )?.id ?? '',
         position: 3,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            BASE_OBJECT_STANDARD_FIELD_IDS.createdAt
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === BASE_OBJECT_STANDARD_FIELD_IDS.createdAt,
+          )?.id ?? '',
         position: 4,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.employees
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === COMPANY_STANDARD_FIELD_IDS.employees,
+          )?.id ?? '',
         position: 5,
         isVisible: true,
         size: 150,
@@ -79,9 +94,10 @@ export const companiesAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.linkedinLink
-          ],
+          companyObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === COMPANY_STANDARD_FIELD_IDS.linkedinLink,
+          )?.id ?? '',
         position: 6,
         isVisible: true,
         size: 170,
@@ -89,9 +105,9 @@ export const companiesAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.company].fields[
-            COMPANY_STANDARD_FIELD_IDS.address
-          ],
+          companyObjectMetadata.fields.find(
+            (field) => field.standardId === COMPANY_STANDARD_FIELD_IDS.address,
+          )?.id ?? '',
         position: 7,
         isVisible: true,
         size: 170,

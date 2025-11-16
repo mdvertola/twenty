@@ -1,17 +1,19 @@
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { FieldActorValue } from '@/object-record/record-field/types/FieldMetadata';
-import { assertUnreachable } from '@/workflow/utils/assertUnreachable';
-import {
-  FieldMetadataType,
-  RelationDefinitionType,
-} from '~/generated-metadata/graphql';
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { type FieldActorValue } from '@/object-record/record-field/ui/types/FieldMetadata';
+import { assertUnreachable } from 'twenty-shared/utils';
+import { FieldMetadataType, RelationType } from '~/generated-metadata/graphql';
 
 export type GenerateEmptyFieldValueArgs = {
-  fieldMetadataItem: Pick<FieldMetadataItem, 'type' | 'relationDefinition'>;
+  fieldMetadataItem: Pick<
+    FieldMetadataItem,
+    'type' | 'settings' | 'defaultValue'
+  >;
+  shouldComputeFunctionDefaultValue?: boolean;
 };
 // TODO strictly type each fieldValue following their FieldMetadataType
 export const generateEmptyFieldValue = ({
   fieldMetadataItem,
+  shouldComputeFunctionDefaultValue = false,
 }: GenerateEmptyFieldValueArgs) => {
   switch (fieldMetadataItem.type) {
     case FieldMetadataType.TEXT: {
@@ -42,9 +44,15 @@ export const generateEmptyFieldValue = ({
       };
     }
     case FieldMetadataType.DATE_TIME: {
+      if (shouldComputeFunctionDefaultValue) {
+        return new Date().toISOString();
+      }
       return null;
     }
     case FieldMetadataType.DATE: {
+      if (shouldComputeFunctionDefaultValue) {
+        return new Date().toISOString();
+      }
       return null;
     }
     case FieldMetadataType.NUMBER:
@@ -57,12 +65,12 @@ export const generateEmptyFieldValue = ({
       return null;
     }
     case FieldMetadataType.BOOLEAN: {
-      return true;
+      return fieldMetadataItem?.defaultValue ?? true;
     }
-    case FieldMetadataType.RELATION: {
+    case FieldMetadataType.RELATION:
+    case FieldMetadataType.MORPH_RELATION: {
       if (
-        fieldMetadataItem.relationDefinition?.direction ===
-        RelationDefinitionType.MANY_TO_ONE
+        fieldMetadataItem.settings?.relationType === RelationType.MANY_TO_ONE
       ) {
         return null;
       }

@@ -1,30 +1,28 @@
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { isDefined } from 'twenty-shared/utils';
 
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
 import { useAdvancedFilterFieldSelectDropdown } from '@/object-record/advanced-filter/hooks/useAdvancedFilterFieldSelectDropdown';
 import { useSelectFieldUsedInAdvancedFilterDropdown } from '@/object-record/advanced-filter/hooks/useSelectFieldUsedInAdvancedFilterDropdown';
 import { fieldMetadataItemUsedInDropdownComponentSelector } from '@/object-record/object-filter-dropdown/states/fieldMetadataItemUsedInDropdownComponentSelector';
 import { objectFilterDropdownIsSelectingCompositeFieldComponentState } from '@/object-record/object-filter-dropdown/states/objectFilterDropdownIsSelectingCompositeFieldComponentState';
 import { objectFilterDropdownSubMenuFieldTypeComponentState } from '@/object-record/object-filter-dropdown/states/objectFilterDropdownSubMenuFieldTypeComponentState';
 import { getCompositeSubFieldLabel } from '@/object-record/object-filter-dropdown/utils/getCompositeSubFieldLabel';
-import { getFilterableFieldTypeLabel } from '@/object-record/object-filter-dropdown/utils/getFilterableFieldTypeLabel';
-import { DEFAULT_ANY_SUB_FIELD_ICON_NAME } from '@/object-record/record-filter/constants/DefaultAnySubFieldIconName';
-import { ICON_NAME_BY_ANY_SUB_FIELD } from '@/object-record/record-filter/constants/IconNameByAnySubField';
 import { ICON_NAME_BY_SUB_FIELD } from '@/object-record/record-filter/constants/IconNameBySubField';
 import { areCompositeTypeSubFieldsFilterable } from '@/object-record/record-filter/utils/areCompositeTypeSubFieldsFilterable';
-import { isCompositeTypeFilterableByAnySubField } from '@/object-record/record-filter/utils/isCompositeTypeFilterableByAnySubField';
+import { isCompositeTypeNonFilterableByAnySubField } from '@/object-record/record-filter/utils/isCompositeTypeNonFilterableByAnySubField';
 import { SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS } from '@/settings/data-model/constants/SettingsCompositeFieldTypeConfigs';
-import { CompositeFieldSubFieldName } from '@/settings/data-model/types/CompositeFieldSubFieldName';
+import { type CompositeFieldSubFieldName } from '@/settings/data-model/types/CompositeFieldSubFieldName';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuHeader } from '@/ui/layout/dropdown/components/DropdownMenuHeader/DropdownMenuHeader';
 import { DropdownMenuHeaderLeftComponent } from '@/ui/layout/dropdown/components/DropdownMenuHeader/internal/DropdownMenuHeaderLeftComponent';
+import { GenericDropdownContentWidth } from '@/ui/layout/dropdown/constants/GenericDropdownContentWidth';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 import { SelectableListItem } from '@/ui/layout/selectable-list/components/SelectableListItem';
 import { selectedItemIdComponentState } from '@/ui/layout/selectable-list/states/selectedItemIdComponentState';
-import { useRecoilComponentStateV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentStateV2';
+import { useRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentState';
 import { IconChevronLeft, useIcons } from 'twenty-ui/display';
 import { MenuItem } from 'twenty-ui/navigation';
 
@@ -37,19 +35,19 @@ export const AdvancedFilterSubFieldSelectMenu = ({
 }: AdvancedFilterSubFieldSelectMenuProps) => {
   const { getIcon } = useIcons();
 
-  const fieldMetadataItemUsedInDropdown = useRecoilComponentValueV2(
+  const fieldMetadataItemUsedInDropdown = useRecoilComponentValue(
     fieldMetadataItemUsedInDropdownComponentSelector,
   );
 
   const [, setObjectFilterDropdownIsSelectingCompositeField] =
-    useRecoilComponentStateV2(
+    useRecoilComponentState(
       objectFilterDropdownIsSelectingCompositeFieldComponentState,
     );
 
   const [
     objectFilterDropdownSubMenuFieldType,
     setObjectFilterDropdownSubMenuFieldType,
-  ] = useRecoilComponentStateV2(
+  ] = useRecoilComponentState(
     objectFilterDropdownSubMenuFieldTypeComponentState,
   );
 
@@ -84,7 +82,7 @@ export const AdvancedFilterSubFieldSelectMenu = ({
   const { advancedFilterFieldSelectDropdownId } =
     useAdvancedFilterFieldSelectDropdown(recordFilterId);
 
-  const selectedItemId = useRecoilComponentValueV2(
+  const selectedItemId = useRecoilComponentValue(
     selectedItemIdComponentState,
     advancedFilterFieldSelectDropdownId,
   );
@@ -93,9 +91,11 @@ export const AdvancedFilterSubFieldSelectMenu = ({
     return null;
   }
 
-  const subFieldNames =
-    SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS[objectFilterDropdownSubMenuFieldType]
-      .filterableSubFields;
+  const subFieldNames = SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS[
+    objectFilterDropdownSubMenuFieldType
+  ].subFields
+    .filter((subField) => subField.isFilterable === true)
+    .map((subField) => subField.subFieldName);
 
   const subFieldsAreFilterable =
     isDefined(fieldMetadataItemUsedInDropdown) &&
@@ -103,7 +103,7 @@ export const AdvancedFilterSubFieldSelectMenu = ({
 
   const compositeFieldTypeIsFilterableByAnySubField =
     isDefined(fieldMetadataItemUsedInDropdown) &&
-    isCompositeTypeFilterableByAnySubField(
+    !isCompositeTypeNonFilterableByAnySubField(
       fieldMetadataItemUsedInDropdown.type,
     );
 
@@ -112,18 +112,8 @@ export const AdvancedFilterSubFieldSelectMenu = ({
     ...subFieldNames.map((subFieldName) => subFieldName),
   ];
 
-  const iconNameForAnySubField = isDefined(fieldMetadataItemUsedInDropdown)
-    ? ICON_NAME_BY_ANY_SUB_FIELD[fieldMetadataItemUsedInDropdown?.type]
-    : (null ?? null);
-
-  const anySubFieldIcon = getIcon(
-    iconNameForAnySubField ??
-      fieldMetadataItemUsedInDropdown?.icon ??
-      DEFAULT_ANY_SUB_FIELD_ICON_NAME,
-  );
-
   return (
-    <DropdownContent>
+    <DropdownContent widthInPixels={GenericDropdownContentWidth.ExtraLarge}>
       <DropdownMenuHeader
         StartComponent={
           <DropdownMenuHeaderLeftComponent
@@ -132,17 +122,17 @@ export const AdvancedFilterSubFieldSelectMenu = ({
           />
         }
       >
-        {getFilterableFieldTypeLabel(objectFilterDropdownSubMenuFieldType)}
+        {fieldMetadataItemUsedInDropdown?.label}
       </DropdownMenuHeader>
       <DropdownMenuItemsContainer>
         <SelectableList
-          hotkeyScope={advancedFilterFieldSelectDropdownId}
+          focusId={advancedFilterFieldSelectDropdownId}
           selectableItemIdArray={selectableItemIdArray}
           selectableListInstanceId={advancedFilterFieldSelectDropdownId}
         >
           {compositeFieldTypeIsFilterableByAnySubField && (
             <SelectableListItem
-              itemId={'-1'}
+              itemId="-1"
               key={`select-filter-${-1}`}
               onEnter={() => {
                 handleSelectFilter(fieldMetadataItemUsedInDropdown);
@@ -155,7 +145,7 @@ export const AdvancedFilterSubFieldSelectMenu = ({
                 onClick={() => {
                   handleSelectFilter(fieldMetadataItemUsedInDropdown);
                 }}
-                LeftIcon={anySubFieldIcon}
+                LeftIcon={getIcon(fieldMetadataItemUsedInDropdown.icon)}
                 text={`Any ${fieldMetadataItemUsedInDropdown.label} field`}
               />
             </SelectableListItem>

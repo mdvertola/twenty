@@ -1,18 +1,20 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { currencyFieldDefaultValueSchema } from '@/object-record/record-field/validation-schemas/currencyFieldDefaultValueSchema';
+import { type FieldCurrencyFormat } from '@/object-record/record-field/ui/types/FieldMetadata';
+import { currencyFieldDefaultValueSchema } from '@/object-record/record-field/ui/validation-schemas/currencyFieldDefaultValueSchema';
+import { currencyFieldSettingsSchema } from '@/object-record/record-field/ui/validation-schemas/currencyFieldSettingsSchema';
 import { SettingsOptionCardContentSelect } from '@/settings/components/SettingsOptions/SettingsOptionCardContentSelect';
 import { CURRENCIES } from '@/settings/data-model/constants/Currencies';
 import { useCurrencySettingsFormInitialValues } from '@/settings/data-model/fields/forms/currency/hooks/useCurrencySettingsFormInitialValues';
 import { Select } from '@/ui/input/components/Select';
 import { useLingui } from '@lingui/react/macro';
-import { IconCurrencyDollar } from 'twenty-ui/display';
+import { IconCheckbox, IconCurrencyDollar } from 'twenty-ui/display';
 import { applySimpleQuotesToString } from '~/utils/string/applySimpleQuotesToString';
 
 export const settingsDataModelFieldCurrencyFormSchema = z.object({
   defaultValue: currencyFieldDefaultValueSchema,
+  settings: currencyFieldSettingsSchema,
 });
 
 export type SettingsDataModelFieldCurrencyFormValues = z.infer<
@@ -21,19 +23,23 @@ export type SettingsDataModelFieldCurrencyFormValues = z.infer<
 
 type SettingsDataModelFieldCurrencyFormProps = {
   disabled?: boolean;
-  fieldMetadataItem: Pick<FieldMetadataItem, 'defaultValue'>;
+  existingFieldMetadataId: string;
 };
 
 export const SettingsDataModelFieldCurrencyForm = ({
   disabled,
-  fieldMetadataItem,
+  existingFieldMetadataId,
 }: SettingsDataModelFieldCurrencyFormProps) => {
   const { t } = useLingui();
+  const {
+    initialAmountMicrosValue,
+    initialCurrencyCodeValue,
+    initialSettingsValue,
+  } = useCurrencySettingsFormInitialValues({
+    existingFieldMetadataId,
+  });
   const { control } =
     useFormContext<SettingsDataModelFieldCurrencyFormValues>();
-
-  const { initialAmountMicrosValue, initialCurrencyCodeValue } =
-    useCurrencySettingsFormInitialValues({ fieldMetadataItem });
 
   return (
     <>
@@ -65,6 +71,32 @@ export const SettingsDataModelFieldCurrencyForm = ({
               }))}
               selectSizeVariant="small"
               withSearchInput={true}
+            />
+          </SettingsOptionCardContentSelect>
+        )}
+      />
+      <Controller
+        name="settings.format"
+        control={control}
+        defaultValue={initialSettingsValue.format}
+        render={({ field: { onChange, value } }) => (
+          <SettingsOptionCardContentSelect
+            Icon={IconCheckbox}
+            title={t`Format`}
+            description={t`Choose between Short and Full`}
+          >
+            <Select<FieldCurrencyFormat>
+              dropdownWidth={140}
+              value={value}
+              onChange={onChange}
+              disabled={disabled}
+              dropdownId="object-field-format-select"
+              options={[
+                { label: 'Short', value: 'short' },
+                { label: 'Full', value: 'full' },
+              ]}
+              selectSizeVariant="small"
+              withSearchInput={false}
             />
           </SettingsOptionCardContentSelect>
         )}

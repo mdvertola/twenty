@@ -1,11 +1,17 @@
-import { useScrollWrapperElement } from '@/ui/utilities/scroll/hooks/useScrollWrapperElement';
+import { useScrollWrapperHTMLElement } from '@/ui/utilities/scroll/hooks/useScrollWrapperHTMLElement';
+import { useCallback } from 'react';
 
 export const useScrollToPosition = () => {
-  const { scrollWrapperHTMLElement } = useScrollWrapperElement();
+  const { scrollWrapperHTMLElement } = useScrollWrapperHTMLElement();
 
-  const scrollToPosition = (scrollPositionInPx: number) => {
-    scrollWrapperHTMLElement?.scrollTo({ top: scrollPositionInPx });
-  };
+  const scrollToPosition = useCallback(
+    (scrollPositionInPx: number) => {
+      scrollWrapperHTMLElement?.scrollTo({
+        top: scrollPositionInPx,
+      });
+    },
+    [scrollWrapperHTMLElement],
+  );
 
   return { scrollToPosition };
 };

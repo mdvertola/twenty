@@ -1,48 +1,57 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Key } from 'ts-key-enum';
 
-import { FieldMultiSelectValue } from '@/object-record/record-field/types/FieldMetadata';
+import { type FieldMultiSelectValue } from '@/object-record/record-field/ui/types/FieldMetadata';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { DropdownMenuSearchInput } from '@/ui/layout/dropdown/components/DropdownMenuSearchInput';
 import { DropdownMenuSeparator } from '@/ui/layout/dropdown/components/DropdownMenuSeparator';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 
+import { AddSelectOptionMenuItem } from '@/settings/data-model/fields/forms/select/components/AddSelectOptionMenuItem';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
+import { SelectableListItem } from '@/ui/layout/selectable-list/components/SelectableListItem';
 import { useSelectableList } from '@/ui/layout/selectable-list/hooks/useSelectableList';
 import { selectedItemIdComponentState } from '@/ui/layout/selectable-list/states/selectedItemIdComponentState';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
 import { useListenClickOutside } from '@/ui/utilities/pointer-event/hooks/useListenClickOutside';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
+import { t } from '@lingui/core/macro';
 import { isDefined } from 'twenty-shared/utils';
-import { SelectOption } from 'twenty-ui/input';
-import { MenuItemMultiSelectTag } from 'twenty-ui/navigation';
+import { type SelectOption } from 'twenty-ui/input';
+import { MenuItem, MenuItemMultiSelectTag } from 'twenty-ui/navigation';
+import { normalizeSearchText } from '~/utils/normalizeSearchText';
 import { turnIntoEmptyStringIfWhitespacesOnly } from '~/utils/string/turnIntoEmptyStringIfWhitespacesOnly';
 
 type MultiSelectInputProps = {
   selectableListComponentInstanceId: string;
   values: FieldMultiSelectValue;
-  hotkeyScope: string;
+  focusId: string;
   onCancel?: () => void;
   options: SelectOption[];
   onOptionSelected: (value: FieldMultiSelectValue) => void;
+  dropdownWidth?: number;
+  onAddSelectOption?: (optionName: string) => void;
 };
 
 export const MultiSelectInput = ({
   selectableListComponentInstanceId,
   values,
   options,
-  hotkeyScope,
+  focusId,
   onCancel,
   onOptionSelected,
+  dropdownWidth,
+  onAddSelectOption,
 }: MultiSelectInputProps) => {
   const { resetSelectedItem } = useSelectableList(
     selectableListComponentInstanceId,
   );
 
-  const selectedItemId = useRecoilComponentValueV2(
+  const selectedItemId = useRecoilComponentValue(
     selectedItemIdComponentState,
     selectableListComponentInstanceId,
   );
+
   const [searchFilter, setSearchFilter] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -50,9 +59,12 @@ export const MultiSelectInput = ({
     values?.includes(option.value),
   );
 
-  const filteredOptionsInDropDown = options.filter((option) =>
-    option.label.toLowerCase().includes(searchFilter.toLowerCase()),
-  );
+  const filteredOptionsInDropDown = useMemo(() => {
+    const searchTerm = normalizeSearchText(searchFilter);
+    return options.filter((option) => {
+      return normalizeSearchText(option.label).includes(searchTerm);
+    });
+  }, [options, searchFilter]);
 
   const formatNewSelectedOptions = (value: string) => {
     const selectedOptionsValues = selectedOptions.map(
@@ -67,21 +79,21 @@ export const MultiSelectInput = ({
     }
   };
 
-  useScopedHotkeys(
-    Key.Escape,
-    () => {
+  useHotkeysOnFocusedElement({
+    keys: Key.Escape,
+    callback: () => {
       onCancel?.();
       resetSelectedItem();
     },
-    hotkeyScope,
-    [onCancel, resetSelectedItem],
-  );
+    focusId,
+    dependencies: [onCancel, resetSelectedItem],
+  });
 
   useListenClickOutside({
     refs: [containerRef],
     callback: (event) => {
       event.stopImmediatePropagation();
-
+      event.preventDefault();
       const weAreNotInAnHTMLInput = !(
         event.target instanceof HTMLInputElement &&
         event.target.tagName === 'INPUT'
@@ -100,9 +112,13 @@ export const MultiSelectInput = ({
     <SelectableList
       selectableListInstanceId={selectableListComponentInstanceId}
       selectableItemIdArray={optionIds}
-      hotkeyScope={hotkeyScope}
+      focusId={focusId}
     >
-      <DropdownContent ref={containerRef} selectDisabled>
+      <DropdownContent
+        ref={containerRef}
+        selectDisabled
+        widthInPixels={dropdownWidth}
+      >
         <DropdownMenuSearchInput
           value={searchFilter}
           onChange={(event) =>
@@ -114,22 +130,47 @@ export const MultiSelectInput = ({
         />
         <DropdownMenuSeparator />
         <DropdownMenuItemsContainer hasMaxHeight>
-          {filteredOptionsInDropDown.map((option) => {
-            return (
-              <MenuItemMultiSelectTag
-                key={option.value}
-                selected={values?.includes(option.value) || false}
-                text={option.label}
-                color={option.color ?? 'transparent'}
-                Icon={option.Icon ?? undefined}
-                onClick={() =>
-                  onOptionSelected(formatNewSelectedOptions(option.value))
-                }
-                isKeySelected={selectedItemId === option.value}
-              />
-            );
-          })}
+          {filteredOptionsInDropDown.length === 0 ? (
+            <MenuItem text={t`No option found`} />
+          ) : (
+            filteredOptionsInDropDown.map((option) => {
+              return (
+                <SelectableListItem
+                  key={option.value}
+                  itemId={option.value}
+                  onEnter={() => {
+                    onOptionSelected(formatNewSelectedOptions(option.value));
+                  }}
+                >
+                  <MenuItemMultiSelectTag
+                    key={option.value}
+                    selected={values?.includes(option.value) || false}
+                    text={option.label}
+                    color={option.color ?? 'transparent'}
+                    Icon={option.Icon ?? undefined}
+                    onClick={() =>
+                      onOptionSelected(formatNewSelectedOptions(option.value))
+                    }
+                    isKeySelected={selectedItemId === option.value}
+                  />
+                </SelectableListItem>
+              );
+            })
+          )}
         </DropdownMenuItemsContainer>
+        {onAddSelectOption &&
+          searchFilter &&
+          filteredOptionsInDropDown.length === 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItemsContainer scrollable={false}>
+                <AddSelectOptionMenuItem
+                  name={searchFilter}
+                  onAddSelectOption={onAddSelectOption}
+                />
+              </DropdownMenuItemsContainer>
+            </>
+          )}
       </DropdownContent>
     </SelectableList>
   );

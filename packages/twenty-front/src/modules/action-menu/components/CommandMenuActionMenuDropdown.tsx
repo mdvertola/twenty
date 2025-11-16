@@ -2,18 +2,18 @@ import { ActionComponent } from '@/action-menu/actions/display/components/Action
 import { ActionScope } from '@/action-menu/actions/types/ActionScope';
 import { ActionMenuContext } from '@/action-menu/contexts/ActionMenuContext';
 import { ActionMenuComponentInstanceContext } from '@/action-menu/states/contexts/ActionMenuComponentInstanceContext';
-import { CommandMenuActionMenuDropdownHotkeyScope } from '@/action-menu/types/CommandMenuActionMenuDropdownHotkeyScope';
 import { getRightDrawerActionMenuDropdownIdFromActionMenuId } from '@/action-menu/utils/getRightDrawerActionMenuDropdownIdFromActionMenuId';
+import { SIDE_PANEL_FOCUS_ID } from '@/command-menu/constants/SidePanelFocusId';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
-import { useDropdownV2 } from '@/ui/layout/dropdown/hooks/useDropdownV2';
+import { useToggleDropdown } from '@/ui/layout/dropdown/hooks/useToggleDropdown';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 import { useSelectableList } from '@/ui/layout/selectable-list/hooks/useSelectableList';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
-import { AppHotkeyScope } from '@/ui/utilities/hotkey/types/AppHotkeyScope';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
 import { useTheme } from '@emotion/react';
+import { t } from '@lingui/core/macro';
 import { useContext } from 'react';
 import { Button } from 'twenty-ui/input';
 import { getOsControlSymbol } from 'twenty-ui/utilities';
@@ -25,24 +25,31 @@ export const CommandMenuActionMenuDropdown = () => {
     ActionMenuComponentInstanceContext,
   );
 
-  const { toggleDropdown } = useDropdownV2();
-
   const theme = useTheme();
 
-  useScopedHotkeys(
-    ['ctrl+o,meta+o'],
-    () => {
-      toggleDropdown(
-        getRightDrawerActionMenuDropdownIdFromActionMenuId(actionMenuId),
-        {
-          scope:
-            CommandMenuActionMenuDropdownHotkeyScope.CommandMenuActionMenuDropdown,
-        },
-      );
+  const dropdownId =
+    getRightDrawerActionMenuDropdownIdFromActionMenuId(actionMenuId);
+  const { toggleDropdown } = useToggleDropdown();
+
+  const hotkeysConfig = {
+    keys: ['ctrl+o', 'meta+o'],
+    callback: () => {
+      toggleDropdown({
+        dropdownComponentInstanceIdFromProps: dropdownId,
+      });
     },
-    AppHotkeyScope.CommandMenuOpen,
-    [toggleDropdown],
-  );
+    dependencies: [toggleDropdown],
+  };
+
+  useHotkeysOnFocusedElement({
+    ...hotkeysConfig,
+    focusId: SIDE_PANEL_FOCUS_ID,
+  });
+
+  useHotkeysOnFocusedElement({
+    ...hotkeysConfig,
+    focusId: dropdownId,
+  });
 
   const recordSelectionActions = actions.filter(
     (action) => action.scope === ActionScope.RecordSelection,
@@ -56,19 +63,17 @@ export const CommandMenuActionMenuDropdown = () => {
 
   return (
     <Dropdown
-      dropdownId={getRightDrawerActionMenuDropdownIdFromActionMenuId(
-        actionMenuId,
-      )}
-      dropdownHotkeyScope={{
-        scope:
-          CommandMenuActionMenuDropdownHotkeyScope.CommandMenuActionMenuDropdown,
-      }}
+      dropdownId={dropdownId}
       data-select-disable
       clickableComponent={
-        <Button title="Options" hotkeys={[getOsControlSymbol(), 'O']} />
+        <Button title={t`Options`} hotkeys={[getOsControlSymbol(), 'O']} />
       }
       dropdownPlacement="top-end"
       dropdownOffset={{ y: parseInt(theme.spacing(2), 10) }}
+      globalHotkeysConfig={{
+        enableGlobalHotkeysWithModifiers: true,
+        enableGlobalHotkeysConflictingWithKeyboard: false,
+      }}
       onOpen={() => {
         setSelectedItemId(selectableItemIdArray[0]);
       }}
@@ -77,9 +82,7 @@ export const CommandMenuActionMenuDropdown = () => {
           <DropdownMenuItemsContainer>
             <SelectableList
               selectableListInstanceId={actionMenuId}
-              hotkeyScope={
-                CommandMenuActionMenuDropdownHotkeyScope.CommandMenuActionMenuDropdown
-              }
+              focusId={dropdownId}
               selectableItemIdArray={selectableItemIdArray}
             >
               {recordSelectionActions.map((action) => (

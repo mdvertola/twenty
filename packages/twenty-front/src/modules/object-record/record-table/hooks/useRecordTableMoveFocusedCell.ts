@@ -1,23 +1,24 @@
 import { useRecoilCallback } from 'recoil';
 
-import { MoveFocusDirection } from '@/object-record/record-table/types/MoveFocusDirection';
-import { getSnapshotValue } from '@/ui/utilities/recoil-scope/utils/getSnapshotValue';
+import { type MoveFocusDirection } from '@/object-record/record-table/types/MoveFocusDirection';
+import { getSnapshotValue } from '@/ui/utilities/state/utils/getSnapshotValue';
 
+import { currentRecordFieldsComponentState } from '@/object-record/record-field/states/currentRecordFieldsComponentState';
 import { recordIndexAllRecordIdsComponentSelector } from '@/object-record/record-index/states/selectors/recordIndexAllRecordIdsComponentSelector';
-import { useSetRecordTableFocusPosition } from '@/object-record/record-table/hooks/internal/useSetRecordTableFocusPosition';
+import { useFocusRecordTableCell } from '@/object-record/record-table/record-table-cell/hooks/useFocusRecordTableCell';
 import { recordTableFocusPositionComponentState } from '@/object-record/record-table/states/recordTableFocusPositionComponentState';
-import { numberOfTableColumnsComponentSelector } from '@/object-record/record-table/states/selectors/numberOfTableColumnsComponentSelector';
-import { useRecoilComponentCallbackStateV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentCallbackStateV2';
+import { useRecoilComponentCallbackState } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentCallbackState';
+import { isDefined } from 'twenty-shared/utils';
 
 export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
-  const setFocusPosition = useSetRecordTableFocusPosition(recordTableId);
+  const { focusRecordTableCell } = useFocusRecordTableCell(recordTableId);
 
-  const focusPositionState = useRecoilComponentCallbackStateV2(
+  const focusPositionState = useRecoilComponentCallbackState(
     recordTableFocusPositionComponentState,
     recordTableId,
   );
 
-  const recordIndexAllRecordIdsSelector = useRecoilComponentCallbackStateV2(
+  const recordIndexAllRecordIdsSelector = useRecoilComponentCallbackState(
     recordIndexAllRecordIdsComponentSelector,
     recordTableId,
   );
@@ -27,18 +28,22 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
       () => {
         const focusPosition = getSnapshotValue(snapshot, focusPositionState);
 
+        if (!isDefined(focusPosition)) {
+          return;
+        }
+
         let newRowIndex = focusPosition.row - 1;
 
         if (newRowIndex < 0) {
           newRowIndex = 0;
         }
 
-        setFocusPosition({
+        focusRecordTableCell({
           ...focusPosition,
           row: newRowIndex,
         });
       },
-    [focusPositionState, setFocusPosition],
+    [focusPositionState, focusRecordTableCell],
   );
 
   const moveDown = useRecoilCallback(
@@ -50,22 +55,26 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
         );
         const focusPosition = getSnapshotValue(snapshot, focusPositionState);
 
+        if (!isDefined(focusPosition)) {
+          return;
+        }
+
         let newRowIndex = focusPosition.row + 1;
 
         if (newRowIndex >= allRecordIds.length) {
           newRowIndex = allRecordIds.length - 1;
         }
 
-        setFocusPosition({
+        focusRecordTableCell({
           ...focusPosition,
           row: newRowIndex,
         });
       },
-    [recordIndexAllRecordIdsSelector, setFocusPosition, focusPositionState],
+    [recordIndexAllRecordIdsSelector, focusRecordTableCell, focusPositionState],
   );
 
-  const numberOfTableColumnsSelector = useRecoilComponentCallbackStateV2(
-    numberOfTableColumnsComponentSelector,
+  const currentRecordFieldsCallbackState = useRecoilComponentCallbackState(
+    currentRecordFieldsComponentState,
     recordTableId,
   );
 
@@ -76,37 +85,42 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
           snapshot,
           recordIndexAllRecordIdsSelector,
         );
+
         const focusPosition = getSnapshotValue(snapshot, focusPositionState);
 
-        const numberOfTableColumns = getSnapshotValue(
+        if (!isDefined(focusPosition)) {
+          return;
+        }
+
+        const numberOfRecordFields = getSnapshotValue(
           snapshot,
-          numberOfTableColumnsSelector,
-        );
+          currentRecordFieldsCallbackState,
+        ).length;
 
         const currentColumnIndex = focusPosition.column;
         const currentRowIndex = focusPosition.row;
 
         const isLastRowAndLastColumn =
-          currentColumnIndex === numberOfTableColumns - 1 &&
+          currentColumnIndex === numberOfRecordFields - 1 &&
           currentRowIndex === allRecordIds.length - 1;
 
         const isLastColumnButNotLastRow =
-          currentColumnIndex === numberOfTableColumns - 1 &&
+          currentColumnIndex === numberOfRecordFields - 1 &&
           currentRowIndex !== allRecordIds.length - 1;
 
-        const isNotLastColumn = currentColumnIndex !== numberOfTableColumns - 1;
+        const isNotLastColumn = currentColumnIndex !== numberOfRecordFields - 1;
 
         if (isLastRowAndLastColumn) {
           return;
         }
 
         if (isNotLastColumn) {
-          setFocusPosition({
+          focusRecordTableCell({
             row: currentRowIndex,
             column: currentColumnIndex + 1,
           });
         } else if (isLastColumnButNotLastRow) {
-          setFocusPosition({
+          focusRecordTableCell({
             row: currentRowIndex + 1,
             column: 0,
           });
@@ -115,8 +129,8 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
     [
       recordIndexAllRecordIdsSelector,
       focusPositionState,
-      numberOfTableColumnsSelector,
-      setFocusPosition,
+      currentRecordFieldsCallbackState,
+      focusRecordTableCell,
     ],
   );
 
@@ -125,10 +139,14 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
       () => {
         const focusPosition = getSnapshotValue(snapshot, focusPositionState);
 
-        const numberOfTableColumns = getSnapshotValue(
+        if (!isDefined(focusPosition)) {
+          return;
+        }
+
+        const numberOfRecordFields = getSnapshotValue(
           snapshot,
-          numberOfTableColumnsSelector,
-        );
+          currentRecordFieldsCallbackState,
+        ).length;
 
         const currentColumnIndex = focusPosition.column;
         const currentRowIndex = focusPosition.row;
@@ -146,18 +164,22 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
         }
 
         if (isNotFirstColumn) {
-          setFocusPosition({
+          focusRecordTableCell({
             row: currentRowIndex,
             column: currentColumnIndex - 1,
           });
         } else if (isFirstColumnButNotFirstRow) {
-          setFocusPosition({
+          focusRecordTableCell({
             row: currentRowIndex - 1,
-            column: numberOfTableColumns - 1,
+            column: numberOfRecordFields - 1,
           });
         }
       },
-    [numberOfTableColumnsSelector, focusPositionState, setFocusPosition],
+    [
+      currentRecordFieldsCallbackState,
+      focusPositionState,
+      focusRecordTableCell,
+    ],
   );
 
   const moveFocus = (direction: MoveFocusDirection) => {
@@ -182,7 +204,6 @@ export const useRecordTableMoveFocusedCell = (recordTableId?: string) => {
     moveLeft,
     moveRight,
     moveUp,
-    setFocusPosition,
     moveFocus,
   };
 };

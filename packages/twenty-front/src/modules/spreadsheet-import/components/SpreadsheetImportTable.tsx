@@ -1,17 +1,16 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 // @ts-expect-error  // Todo: remove usage of react-data-grid
-import DataGrid, { DataGridProps } from 'react-data-grid';
+import DataGrid, { type DataGridProps } from 'react-data-grid';
 
 import { useSpreadsheetImportInternal } from '@/spreadsheet-import/hooks/useSpreadsheetImportInternal';
-import { RGBA } from 'twenty-ui/theme';
 
 const StyledDataGrid = styled(DataGrid)`
   --rdg-background-color: ${({ theme }) => theme.background.primary};
   --rdg-border-color: ${({ theme }) => theme.border.color.medium};
   --rdg-color: ${({ theme }) => theme.font.color.primary};
   --rdg-error-cell-background-color: ${({ theme }) =>
-    RGBA(theme.color.red, 0.4)};
+    theme.color.transparent.red5};
   --rdg-font-size: ${({ theme }) => theme.font.size.sm};
   --rdg-frozen-cell-box-shadow: none;
   --rdg-header-background-color: ${({ theme }) => theme.background.primary};
@@ -28,18 +27,17 @@ const StyledDataGrid = styled(DataGrid)`
   --row-selected-hover-background-color: ${({ theme }) =>
     theme.background.secondary};
 
+  border: none;
   block-size: 100%;
-  border: 1px solid ${({ theme }) => theme.border.color.medium};
-  border-radius: ${({ theme }) => theme.border.radius.md};
   width: 100%;
 
   .rdg-header-row .rdg-cell {
     box-shadow: none;
     color: ${({ theme }) => theme.font.color.tertiary};
+    background-color: ${({ theme }) => theme.background.secondary};
     font-size: ${({ theme }) => theme.font.size.sm};
     font-weight: ${({ theme }) => theme.font.weight.semiBold};
     letter-spacing: wider;
-    text-transform: uppercase;
     ${({ headerRowHeight }) => {
       if (headerRowHeight === 0) {
         return `
@@ -68,15 +66,15 @@ const StyledDataGrid = styled(DataGrid)`
   }
 
   .rdg-cell-error {
-    background-color: ${({ theme }) => RGBA(theme.color.red, 0.08)};
+    background-color: ${({ theme }) => theme.color.yellow3};
   }
 
   .rdg-cell-warning {
-    background-color: ${({ theme }) => RGBA(theme.color.orange, 0.08)};
+    background-color: ${({ theme }) => theme.color.transparent.orange2};
   }
 
   .rdg-cell-info {
-    background-color: ${({ theme }) => RGBA(theme.color.blue, 0.08)};
+    background-color: ${({ theme }) => theme.color.transparent.blue2};
   }
 
   .rdg-static {
@@ -108,10 +106,22 @@ const StyledDataGrid = styled(DataGrid)`
   }
 ` as typeof DataGrid;
 
-type SpreadsheetImportTableProps<Data> = DataGridProps<Data> & {
-  rowHeight?: number;
-  hiddenHeader?: boolean;
-};
+type SpreadsheetImportTableProps<Data> = Pick<
+  DataGridProps<Data>,
+  | 'selectedRows'
+  | 'onSelectedRowsChange'
+  | 'columns'
+  | 'headerRowHeight'
+  | 'rowKeyGetter'
+  | 'rows'
+> &
+  Partial<
+    Pick<DataGridProps<Data>, 'onRowClick' | 'components' | 'onRowsChange'>
+  > & {
+    className?: string;
+    rowHeight?: number;
+    hiddenHeader?: boolean;
+  };
 
 export const SpreadsheetImportTable = <Data,>({
   className,
@@ -120,8 +130,8 @@ export const SpreadsheetImportTable = <Data,>({
   headerRowHeight,
   rowKeyGetter,
   rows,
-  onRowClick,
   onRowsChange,
+  onRowClick,
   onSelectedRowsChange,
   selectedRows,
 }: SpreadsheetImportTableProps<Data>) => {
@@ -134,16 +144,16 @@ export const SpreadsheetImportTable = <Data,>({
   return (
     <StyledDataGrid
       direction={rtl ? 'rtl' : 'ltr'}
-      rowHeight={52}
+      rowHeight={40}
       {...{
         className: `${className || ''} ${themeClassName}`,
         columns,
-        components,
         headerRowHeight,
         rowKeyGetter,
-        rows,
-        onRowClick,
         onRowsChange,
+        rows,
+        components,
+        onRowClick,
         onSelectedRowsChange,
         selectedRows,
       }}

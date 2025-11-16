@@ -1,22 +1,23 @@
-import { InMemoryCache, NormalizedCacheObject } from '@apollo/client';
+import { InMemoryCache, type NormalizedCacheObject } from '@apollo/client';
 import { useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useRecoilState, useSetRecoilState } from 'recoil';
+import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
 import { currentUserState } from '@/auth/states/currentUserState';
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { previousUrlState } from '@/auth/states/previousUrlState';
 import { tokenPairState } from '@/auth/states/tokenPairState';
-import { workspacesState } from '@/auth/states/workspaces';
 import { REACT_APP_SERVER_BASE_URL } from '~/config';
 import { useUpdateEffect } from '~/hooks/useUpdateEffect';
 import { isMatchingLocation } from '~/utils/isMatchingLocation';
 
 import { currentUserWorkspaceState } from '@/auth/states/currentUserWorkspaceState';
-import { AppPath } from '@/types/AppPath';
+import { appVersionState } from '@/client-config/states/appVersionState';
+import { useSnackBar } from '@/ui/feedback/snack-bar-manager/hooks/useSnackBar';
+import { AppPath } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
-import { ApolloFactory, Options } from '../services/apollo.factory';
+import { ApolloFactory, type Options } from '../services/apollo.factory';
 
 export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
   // eslint-disable-next-line @nx/workspace-no-state-useref
@@ -27,15 +28,17 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
   const [currentWorkspace, setCurrentWorkspace] = useRecoilState(
     currentWorkspaceState,
   );
+  const appVersion = useRecoilValue(appVersionState);
   const [currentWorkspaceMember, setCurrentWorkspaceMember] = useRecoilState(
     currentWorkspaceMemberState,
   );
   const setCurrentUser = useSetRecoilState(currentUserState);
   const setCurrentUserWorkspace = useSetRecoilState(currentUserWorkspaceState);
 
-  const setWorkspaces = useSetRecoilState(workspacesState);
-  const [, setPreviousUrl] = useRecoilState(previousUrlState);
+  const setPreviousUrl = useSetRecoilState(previousUrlState);
   const location = useLocation();
+
+  const { enqueueErrorSnackBar } = useSnackBar();
 
   const apolloClient = useMemo(() => {
     apolloRef.current = new ApolloFactory({
@@ -56,6 +59,7 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
       connectToDevTools: process.env.IS_DEBUG_MODE === 'true',
       currentWorkspaceMember: currentWorkspaceMember,
       currentWorkspace: currentWorkspace,
+      appVersion,
       onTokenPairChange: (tokenPair) => {
         setTokenPair(tokenPair);
       },
@@ -65,7 +69,6 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
         setCurrentWorkspaceMember(null);
         setCurrentWorkspace(null);
         setCurrentUserWorkspace(null);
-        setWorkspaces([]);
         if (
           !isMatchingLocation(location, AppPath.Verify) &&
           !isMatchingLocation(location, AppPath.SignInUp) &&
@@ -75,6 +78,14 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
           setPreviousUrl(`${location.pathname}${location.search}`);
           navigate(AppPath.SignInUp);
         }
+      },
+      onAppVersionMismatch: (message) => {
+        enqueueErrorSnackBar({
+          message,
+          options: {
+            dedupeKey: 'app-version-mismatch',
+          },
+        });
       },
       extraLinks: [],
       isDebugMode: process.env.IS_DEBUG_MODE === 'true',
@@ -89,8 +100,8 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
     setCurrentUser,
     setCurrentWorkspaceMember,
     setCurrentWorkspace,
-    setWorkspaces,
     setPreviousUrl,
+    enqueueErrorSnackBar,
   ]);
 
   useUpdateEffect(() => {
@@ -104,6 +115,12 @@ export const useApolloFactory = (options: Partial<Options<any>> = {}) => {
       apolloRef.current.updateCurrentWorkspace(currentWorkspace);
     }
   }, [currentWorkspace]);
+
+  useUpdateEffect(() => {
+    if (isDefined(apolloRef.current)) {
+      apolloRef.current.updateAppVersion(appVersion);
+    }
+  }, [appVersion]);
 
   return apolloClient;
 };

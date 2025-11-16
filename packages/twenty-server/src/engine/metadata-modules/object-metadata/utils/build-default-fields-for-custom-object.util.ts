@@ -1,6 +1,7 @@
 import { FieldMetadataType } from 'twenty-shared/types';
+import { v4 } from 'uuid';
 
-import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
+import { type FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import {
   BASE_OBJECT_STANDARD_FIELD_IDS,
   CUSTOM_OBJECT_STANDARD_FIELD_IDS,
@@ -8,8 +9,9 @@ import {
 
 export const buildDefaultFieldsForCustomObject = (
   workspaceId: string,
-): Partial<FieldMetadataEntity>[] => [
+): Array<Partial<FieldMetadataEntity> & { id: string }> => [
   {
+    id: v4(),
     standardId: BASE_OBJECT_STANDARD_FIELD_IDS.id,
     type: FieldMetadataType.UUID,
     name: 'id',
@@ -20,10 +22,12 @@ export const buildDefaultFieldsForCustomObject = (
     isActive: true,
     isCustom: false,
     isSystem: true,
+    isUIReadOnly: true,
     workspaceId,
     defaultValue: 'uuid',
   },
   {
+    id: v4(),
     standardId: CUSTOM_OBJECT_STANDARD_FIELD_IDS.name,
     type: FieldMetadataType.TEXT,
     name: 'name',
@@ -33,10 +37,12 @@ export const buildDefaultFieldsForCustomObject = (
     isNullable: false,
     isActive: true,
     isCustom: false,
+    isUIReadOnly: false,
     workspaceId,
-    defaultValue: "'Untitled'",
+    defaultValue: "''",
   },
   {
+    id: v4(),
     standardId: BASE_OBJECT_STANDARD_FIELD_IDS.createdAt,
     type: FieldMetadataType.DATE_TIME,
     name: 'createdAt',
@@ -46,10 +52,12 @@ export const buildDefaultFieldsForCustomObject = (
     isNullable: false,
     isActive: true,
     isCustom: false,
+    isUIReadOnly: false,
     workspaceId,
     defaultValue: 'now',
   },
   {
+    id: v4(),
     standardId: BASE_OBJECT_STANDARD_FIELD_IDS.updatedAt,
     type: FieldMetadataType.DATE_TIME,
     name: 'updatedAt',
@@ -60,10 +68,12 @@ export const buildDefaultFieldsForCustomObject = (
     isActive: true,
     isCustom: false,
     isSystem: false,
+    isUIReadOnly: false,
     workspaceId,
     defaultValue: 'now',
   },
   {
+    id: v4(),
     standardId: BASE_OBJECT_STANDARD_FIELD_IDS.deletedAt,
     type: FieldMetadataType.DATE_TIME,
     name: 'deletedAt',
@@ -74,10 +84,12 @@ export const buildDefaultFieldsForCustomObject = (
     isActive: true,
     isCustom: false,
     isSystem: false,
+    isUIReadOnly: true,
     workspaceId,
     defaultValue: null,
   },
   {
+    id: v4(),
     standardId: CUSTOM_OBJECT_STANDARD_FIELD_IDS.createdBy,
     type: FieldMetadataType.ACTOR,
     name: 'createdBy',
@@ -88,21 +100,24 @@ export const buildDefaultFieldsForCustomObject = (
     isActive: true,
     isCustom: false,
     isSystem: false,
+    isUIReadOnly: true,
     workspaceId,
     defaultValue: { name: "''", source: "'MANUAL'" },
   },
   {
+    id: v4(),
     standardId: CUSTOM_OBJECT_STANDARD_FIELD_IDS.position,
     type: FieldMetadataType.POSITION,
     name: 'position',
     label: 'Position',
     icon: 'IconHierarchy2',
     description: 'Position',
-    isNullable: true,
+    isNullable: false,
     isActive: true,
     isCustom: false,
     isSystem: true,
+    isUIReadOnly: false,
     workspaceId,
-    defaultValue: null,
+    defaultValue: 0,
   },
 ];

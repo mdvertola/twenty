@@ -1,16 +1,20 @@
 import { TEST_COMPANY_1_ID } from 'test/integration/constants/test-company-ids.constants';
 import { TEST_PERSON_1_ID } from 'test/integration/constants/test-person-ids.constants';
-import { TEST_PRIMARY_LINK_URL } from 'test/integration/constants/test-primary-link-url.constant';
+import {
+  TEST_PRIMARY_LINK_URL,
+  TEST_PRIMARY_LINK_URL_WIITHOUT_TRAILING_SLASH,
+} from 'test/integration/constants/test-primary-link-url.constant';
 import { makeRestAPIRequest } from 'test/integration/rest/utils/make-rest-api-request.util';
 import { deleteAllRecords } from 'test/integration/utils/delete-all-records';
 import { generateRecordName } from 'test/integration/utils/generate-record-name';
-import { TIM_ACCOUNT_ID } from 'test/integration/graphql/integration.constants';
+import { FieldActorSource } from 'twenty-shared/types';
 
-import { FieldActorSource } from 'src/engine/metadata-modules/field-metadata/composite-types/actor.composite-type';
+import { WORKSPACE_MEMBER_DATA_SEED_IDS } from 'src/engine/workspace-manager/dev-seeder/data/constants/workspace-member-data-seeds.constant';
 
 describe('Core REST API Create One endpoint', () => {
   beforeEach(async () => {
     await deleteAllRecords('person');
+    await deleteAllRecords('company');
     await makeRestAPIRequest({
       method: 'post',
       path: '/companies',
@@ -21,6 +25,11 @@ describe('Core REST API Create One endpoint', () => {
         },
       },
     });
+  });
+
+  afterAll(async () => {
+    await deleteAllRecords('person');
+    await deleteAllRecords('company');
   });
 
   it('should create a new person', async () => {
@@ -84,14 +93,16 @@ describe('Core REST API Create One endpoint', () => {
       method: 'post',
       path: `/people`,
       body: requestBody,
-      bearer: ADMIN_ACCESS_TOKEN,
+      bearer: APPLE_JANE_ADMIN_ACCESS_TOKEN,
     })
       .expect(201)
       .expect((res) => {
         const createdPerson = res.body.data.createPerson;
 
         expect(createdPerson.createdBy.source).toBe(FieldActorSource.MANUAL);
-        expect(createdPerson.createdBy.workspaceMemberId).toBe(TIM_ACCOUNT_ID);
+        expect(createdPerson.createdBy.workspaceMemberId).toBe(
+          WORKSPACE_MEMBER_DATA_SEED_IDS.JANE,
+        );
       });
   });
 
@@ -136,13 +147,13 @@ describe('Core REST API Create One endpoint', () => {
 
         expect(createdPerson.company).toBeDefined();
         expect(createdPerson.company.domainName.primaryLinkUrl).toBe(
-          TEST_PRIMARY_LINK_URL,
+          TEST_PRIMARY_LINK_URL_WIITHOUT_TRAILING_SLASH,
         );
         expect(createdPerson.company.people).not.toBeDefined();
       });
   });
 
-  it('should support depth 2 parameter', async () => {
+  it('should not support depth 2 parameter', async () => {
     const personCity = generateRecordName(TEST_PERSON_1_ID);
     const requestBody = {
       id: TEST_PERSON_1_ID,
@@ -154,19 +165,7 @@ describe('Core REST API Create One endpoint', () => {
       method: 'post',
       path: `/people?depth=2`,
       body: requestBody,
-    })
-      .expect(201)
-      .expect((res) => {
-        const createdPerson = res.body.data.createPerson;
-
-        expect(createdPerson.company.people).toBeDefined();
-        const depth2Person = createdPerson.company.people.find(
-          // @ts-expect-error legacy noImplicitAny
-          (p) => p.id === createdPerson.id,
-        );
-
-        expect(depth2Person).toBeDefined();
-      });
+    }).expect(400);
   });
 
   it('should return a BadRequestException when trying to create a person with an existing ID', async () => {
@@ -189,7 +188,9 @@ describe('Core REST API Create One endpoint', () => {
     })
       .expect(400)
       .expect((res) => {
-        expect(res.body.messages[0]).toContain(`Record already exists`);
+        expect(res.body.messages[0]).toContain(
+          `A duplicate entry was detected`,
+        );
         expect(res.body.error).toBe('BadRequestException');
       });
   });

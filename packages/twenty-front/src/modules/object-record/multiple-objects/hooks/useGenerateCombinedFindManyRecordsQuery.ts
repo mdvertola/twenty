@@ -1,15 +1,16 @@
 import { gql } from '@apollo/client';
-import { isUndefined } from '@sniptt/guards';
+import { isNonEmptyArray, isUndefined } from '@sniptt/guards';
 import { useRecoilValue } from 'recoil';
 
 import { objectMetadataItemsState } from '@/object-metadata/states/objectMetadataItemsState';
+import { getObjectPermissionsForObject } from '@/object-metadata/utils/getObjectPermissionsForObject';
 import { mapObjectMetadataToGraphQLQuery } from '@/object-metadata/utils/mapObjectMetadataToGraphQLQuery';
-import { RecordGqlOperationSignature } from '@/object-record/graphql/types/RecordGqlOperationSignature';
-import { generateDepthOneRecordGqlFields } from '@/object-record/graphql/utils/generateDepthOneRecordGqlFields';
+import { type RecordGqlOperationSignature } from '@/object-record/graphql/types/RecordGqlOperationSignature';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
 import { getCombinedFindManyRecordsQueryFilteringPart } from '@/object-record/multiple-objects/utils/getCombinedFindManyRecordsQueryFilteringPart';
+import isEmpty from 'lodash.isempty';
 import { capitalize } from 'twenty-shared/utils';
-import { isNonEmptyArray } from '~/utils/isNonEmptyArray';
+import { generateDepthRecordGqlFieldsFromObject } from '@/object-record/graphql/record-gql-fields/utils/generateDepthRecordGqlFieldsFromObject';
 
 export const useGenerateCombinedFindManyRecordsQuery = ({
   operationSignatures,
@@ -23,40 +24,8 @@ export const useGenerateCombinedFindManyRecordsQuery = ({
     return null;
   }
 
-  const filterPerMetadataItemArray = operationSignatures
-    .map(
-      ({ objectNameSingular }) =>
-        `$filter${capitalize(objectNameSingular)}: ${capitalize(
-          objectNameSingular,
-        )}FilterInput`,
-    )
-    .join(', ');
-
-  const orderByPerMetadataItemArray = operationSignatures
-    .map(
-      ({ objectNameSingular }) =>
-        `$orderBy${capitalize(objectNameSingular)}: [${capitalize(
-          objectNameSingular,
-        )}OrderByInput]`,
-    )
-    .join(', ');
-
-  const cursorFilteringPerMetadataItemArray = operationSignatures
-    .map(
-      ({ objectNameSingular }) =>
-        `$after${capitalize(objectNameSingular)}: String, $before${capitalize(objectNameSingular)}: String, $first${capitalize(objectNameSingular)}: Int, $last${capitalize(objectNameSingular)}: Int`,
-    )
-    .join(', ');
-
-  const limitPerMetadataItemArray = operationSignatures
-    .map(
-      ({ objectNameSingular }) =>
-        `$limit${capitalize(objectNameSingular)}: Int`,
-    )
-    .join(', ');
-
-  const queryOperationSignatureWithObjectMetadataItemArray =
-    operationSignatures.map((operationSignature) => {
+  const queryOperationSignatureWithObjectMetadataItemArray = operationSignatures
+    .map((operationSignature) => {
       const objectMetadataItem = objectMetadataItems.find(
         (objectMetadataItem) =>
           objectMetadataItem.nameSingular ===
@@ -70,14 +39,52 @@ export const useGenerateCombinedFindManyRecordsQuery = ({
       }
 
       return { operationSignature, objectMetadataItem };
-    });
+    })
+    .filter(
+      ({ objectMetadataItem }) =>
+        getObjectPermissionsForObject(
+          objectPermissionsByObjectMetadataId,
+          objectMetadataItem.id,
+        )?.canReadObjectRecords,
+    );
+
+  const filterPerMetadataItemArray =
+    queryOperationSignatureWithObjectMetadataItemArray
+      .map(
+        ({ objectMetadataItem }) =>
+          `$filter${capitalize(objectMetadataItem.nameSingular)}: ${capitalize(
+            objectMetadataItem.nameSingular,
+          )}FilterInput`,
+      )
+      .join(', ');
+
+  const orderByPerMetadataItemArray =
+    queryOperationSignatureWithObjectMetadataItemArray
+      .map(
+        ({ objectMetadataItem }) =>
+          `$orderBy${capitalize(objectMetadataItem.nameSingular)}: [${capitalize(
+            objectMetadataItem.nameSingular,
+          )}OrderByInput]`,
+      )
+      .join(', ');
+
+  const cursorFilteringPerMetadataItemArray =
+    queryOperationSignatureWithObjectMetadataItemArray
+      .map(
+        ({ objectMetadataItem }) =>
+          `$after${capitalize(objectMetadataItem.nameSingular)}: String, $before${capitalize(objectMetadataItem.nameSingular)}: String, $first${capitalize(objectMetadataItem.nameSingular)}: Int, $last${capitalize(objectMetadataItem.nameSingular)}: Int`,
+      )
+      .join(', ');
+
+  if (isEmpty(queryOperationSignatureWithObjectMetadataItemArray)) {
+    return null;
+  }
 
   return gql`
     query CombinedFindManyRecords(
       ${filterPerMetadataItemArray}, 
       ${orderByPerMetadataItemArray}, 
-      ${cursorFilteringPerMetadataItemArray}, 
-      ${limitPerMetadataItemArray}
+      ${cursorFilteringPerMetadataItemArray},
     ) {
       ${queryOperationSignatureWithObjectMetadataItemArray
         .map(
@@ -91,7 +98,9 @@ export const useGenerateCombinedFindManyRecordsQuery = ({
               objectMetadataItem,
               recordGqlFields:
                 operationSignature.fields ??
-                generateDepthOneRecordGqlFields({
+                generateDepthRecordGqlFieldsFromObject({
+                  objectMetadataItems,
+                  depth: 1,
                   objectMetadataItem,
                 }),
               objectPermissionsByObjectMetadataId,

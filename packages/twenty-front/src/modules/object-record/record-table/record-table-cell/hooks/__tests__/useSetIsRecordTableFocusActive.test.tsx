@@ -3,10 +3,10 @@ import React, { act } from 'react';
 import { RecoilRoot, useRecoilValue } from 'recoil';
 
 import { RecordTableComponentInstance } from '@/object-record/record-table/components/RecordTableComponentInstance';
-import { useSetIsRecordTableFocusActive } from '@/object-record/record-table/record-table-cell/hooks/useSetIsRecordTableFocusActive';
+import { useSetIsRecordTableCellFocusActive } from '@/object-record/record-table/record-table-cell/hooks/useSetIsRecordTableCellFocusActive';
 import { isRecordTableCellFocusActiveComponentState } from '@/object-record/record-table/states/isRecordTableCellFocusActiveComponentState';
 import { recordTableFocusPositionComponentState } from '@/object-record/record-table/states/recordTableFocusPositionComponentState';
-import { TableCellPosition } from '@/object-record/record-table/types/TableCellPosition';
+import { type TableCellPosition } from '@/object-record/record-table/types/TableCellPosition';
 
 const mockClassList = {
   add: jest.fn(),
@@ -35,10 +35,7 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
       );
     }}
   >
-    <RecordTableComponentInstance
-      recordTableId="test-table-id"
-      onColumnsChange={jest.fn()}
-    >
+    <RecordTableComponentInstance recordTableId="test-table-id">
       {children}
     </RecordTableComponentInstance>
   </RecoilRoot>
@@ -47,21 +44,22 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 const renderHooks = () => {
   const { result } = renderHook(
     () => {
-      const { setIsFocusActive, setIsFocusActiveForCurrentPosition } =
-        useSetIsRecordTableFocusActive('test-table-id');
+      const { setIsRecordTableCellFocusActive } =
+        useSetIsRecordTableCellFocusActive('test-table-id');
+
       const isRecordTableFocusActive = useRecoilValue(
         isRecordTableCellFocusActiveComponentState.atomFamily({
           instanceId: 'test-table-id',
         }),
       );
+
       const focusPosition = useRecoilValue(
         recordTableFocusPositionComponentState.atomFamily({
           instanceId: 'test-table-id',
         }),
       );
       return {
-        setIsFocusActive,
-        setIsFocusActiveForCurrentPosition,
+        setIsRecordTableCellFocusActive,
         isRecordTableFocusActive,
         focusPosition,
       };
@@ -87,12 +85,11 @@ describe('useSetIsRecordTableFocusActive', () => {
     const cellPosition: TableCellPosition = { column: 1, row: 0 };
 
     act(() => {
-      result.current.setIsFocusActive(true, cellPosition);
+      result.current.setIsRecordTableCellFocusActive({
+        isRecordTableFocusActive: true,
+        cellPosition,
+      });
     });
-
-    expect(mockGetElementById).toHaveBeenCalledWith('record-table-cell-1-0');
-
-    expect(mockClassList.add).toHaveBeenCalledWith('focus-active');
 
     expect(result.current.isRecordTableFocusActive).toBe(true);
 
@@ -105,32 +102,15 @@ describe('useSetIsRecordTableFocusActive', () => {
     const cellPosition: TableCellPosition = { column: 1, row: 0 };
 
     act(() => {
-      result.current.setIsFocusActive(false, cellPosition);
+      result.current.setIsRecordTableCellFocusActive({
+        isRecordTableFocusActive: false,
+        cellPosition,
+      });
     });
-
-    expect(mockGetElementById).toHaveBeenCalledWith('record-table-cell-1-0');
-
-    expect(mockClassList.remove).toHaveBeenCalledWith('focus-active');
 
     expect(result.current.isRecordTableFocusActive).toBe(false);
 
-    expect(result.current.focusPosition).toEqual(cellPosition);
-  });
-
-  it('should set focus for current position', () => {
-    const { result } = renderHooks();
-
-    act(() => {
-      result.current.setIsFocusActiveForCurrentPosition(true);
-    });
-
-    expect(mockGetElementById).toHaveBeenCalledWith('record-table-cell-1-0');
-
-    expect(mockClassList.add).toHaveBeenCalledWith('focus-active');
-
-    expect(result.current.isRecordTableFocusActive).toBe(true);
-
-    expect(result.current.focusPosition).toEqual({ column: 1, row: 0 });
+    expect(result.current.focusPosition).toEqual(null);
   });
 
   it('should handle case when the cell element is not found', () => {
@@ -141,12 +121,11 @@ describe('useSetIsRecordTableFocusActive', () => {
     const cellPosition: TableCellPosition = { column: 1, row: 0 };
 
     act(() => {
-      result.current.setIsFocusActive(true, cellPosition);
+      result.current.setIsRecordTableCellFocusActive({
+        isRecordTableFocusActive: true,
+        cellPosition,
+      });
     });
-
-    expect(mockGetElementById).toHaveBeenCalledWith('record-table-cell-1-0');
-
-    expect(mockClassList.add).not.toHaveBeenCalled();
 
     expect(result.current.isRecordTableFocusActive).toBe(true);
 

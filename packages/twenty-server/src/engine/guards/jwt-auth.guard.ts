@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  type CanActivate,
+  type ExecutionContext,
+  Injectable,
+} from '@nestjs/common';
+
+import { isDefined } from 'twenty-shared/utils';
 
 import { AccessTokenService } from 'src/engine/core-modules/auth/token/services/access-token.service';
 import { WorkspaceCacheStorageService } from 'src/engine/workspace-cache-storage/workspace-cache-storage.service';
@@ -16,21 +22,26 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const data =
         await this.accessTokenService.validateTokenByRequest(request);
-      const metadataVersion =
-        await this.workspaceStorageCacheService.getMetadataVersion(
-          data.workspace.id,
-        );
+      const metadataVersion = data.workspace
+        ? await this.workspaceStorageCacheService.getMetadataVersion(
+            data.workspace.id,
+          )
+        : undefined;
+
+      if (!isDefined(data.apiKey) && !isDefined(data.userWorkspaceId)) {
+        return false;
+      }
 
       request.user = data.user;
       request.apiKey = data.apiKey;
       request.workspace = data.workspace;
-      request.workspaceId = data.workspace.id;
+      request.workspaceId = data.workspace?.id;
       request.workspaceMetadataVersion = metadataVersion;
       request.workspaceMemberId = data.workspaceMemberId;
       request.userWorkspaceId = data.userWorkspaceId;
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

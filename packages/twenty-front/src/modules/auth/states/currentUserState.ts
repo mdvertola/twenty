@@ -1,5 +1,5 @@
-import { User } from '~/generated/graphql';
 import { createState } from 'twenty-ui/utilities';
+import { type User } from '~/generated/graphql';
 
 export type CurrentUser = Pick<
   User,
@@ -10,6 +10,9 @@ export type CurrentUser = Pick<
   | 'canImpersonate'
   | 'onboardingStatus'
   | 'userVars'
+  | 'firstName'
+  | 'lastName'
+  | 'hasPassword'
 >;
 
 export const currentUserState = createState<CurrentUser | null>({

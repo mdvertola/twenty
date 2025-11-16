@@ -1,7 +1,8 @@
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { DEFAULT_QUERY_PAGE_SIZE } from '@/object-record/constants/DefaultQueryPageSize';
-import { UseFindManyRecordsParams } from '@/object-record/hooks/useFetchMoreRecordsWithPagination';
+import { type UseFindManyRecordsParams } from '@/object-record/hooks/useFetchMoreRecordsWithPagination';
 import { useLazyFindManyRecords } from '@/object-record/hooks/useLazyFindManyRecords';
+import { type ObjectRecordQueryProgress } from '@/object-record/types/ObjectRecordQueryProgress';
 import { useCallback, useState } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 import { sleep } from '~/utils/sleep';
@@ -15,12 +16,6 @@ type UseLazyFetchAllRecordIdsParams<T> = Omit<
   maximumRequests?: number;
 };
 
-type ExportProgress = {
-  exportedRecordCount?: number;
-  totalRecordCount?: number;
-  displayType: 'percentage' | 'number';
-};
-
 export const useLazyFetchAllRecords = <T>({
   objectNameSingular,
   filter,
@@ -31,10 +26,10 @@ export const useLazyFetchAllRecords = <T>({
   recordGqlFields,
 }: UseLazyFetchAllRecordIdsParams<T>) => {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [progress, setProgress] = useState<ExportProgress>({
+  const [progress, setProgress] = useState<ObjectRecordQueryProgress>({
     displayType: 'number',
   });
-  const { fetchMore, findManyRecords } = useLazyFindManyRecords({
+  const { fetchMoreRecordsLazy, findManyRecordsLazy } = useLazyFindManyRecords({
     objectNameSingular,
     filter,
     orderBy,
@@ -47,12 +42,12 @@ export const useLazyFetchAllRecords = <T>({
   });
 
   const fetchAllRecords = useCallback(async () => {
-    if (!isDefined(findManyRecords)) {
+    if (!isDefined(findManyRecordsLazy)) {
       return [];
     }
     setIsDownloading(true);
 
-    const findManyRecordsDataResult = await findManyRecords();
+    const findManyRecordsDataResult = await findManyRecordsLazy();
 
     const firstQueryResult =
       findManyRecordsDataResult?.data?.[objectMetadataItem.namePlural];
@@ -64,7 +59,7 @@ export const useLazyFetchAllRecords = <T>({
     const records = firstQueryResult?.edges?.map((edge) => edge.node) ?? [];
 
     setProgress({
-      exportedRecordCount: recordsCount,
+      processedRecordCount: recordsCount,
       totalRecordCount: totalCount,
       displayType: totalCount ? 'percentage' : 'number',
     });
@@ -84,7 +79,7 @@ export const useLazyFetchAllRecords = <T>({
         break;
       }
 
-      if (!isDefined(fetchMore)) {
+      if (!isDefined(fetchMoreRecordsLazy)) {
         break;
       }
 
@@ -92,30 +87,25 @@ export const useLazyFetchAllRecords = <T>({
         await sleep(delayMs);
       }
 
-      const rawResult = await fetchMore({
-        variables: {
-          lastCursor: lastCursor,
-          limit,
-        },
-      });
+      const rawResult = await fetchMoreRecordsLazy(limit);
 
-      const fetchMoreResult = rawResult?.data?.[objectMetadataItem.namePlural];
+      const fetchMoreResult = rawResult?.data;
 
-      for (const edge of fetchMoreResult.edges) {
+      for (const edge of fetchMoreResult?.edges ?? []) {
         records.push(edge.node);
       }
 
       setProgress({
-        exportedRecordCount: records.length,
+        processedRecordCount: records.length,
         totalRecordCount: totalCount,
         displayType: totalCount ? 'percentage' : 'number',
       });
 
-      if (fetchMoreResult.pageInfo.hasNextPage === false) {
+      if (fetchMoreResult?.pageInfo.hasNextPage === false) {
         break;
       }
 
-      lastCursor = fetchMoreResult.pageInfo.endCursor ?? null;
+      lastCursor = fetchMoreResult?.pageInfo.endCursor ?? null;
     }
 
     setIsDownloading(false);
@@ -126,8 +116,8 @@ export const useLazyFetchAllRecords = <T>({
     return records;
   }, [
     delayMs,
-    fetchMore,
-    findManyRecords,
+    fetchMoreRecordsLazy,
+    findManyRecordsLazy,
     objectMetadataItem.namePlural,
     limit,
     maximumRequests,

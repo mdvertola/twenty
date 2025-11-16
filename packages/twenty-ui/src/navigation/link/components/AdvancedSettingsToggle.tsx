@@ -1,7 +1,7 @@
+import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { IconPoint } from '@ui/display';
 import { Toggle } from '@ui/input';
-import { MAIN_COLORS } from '@ui/theme';
 import { useId } from 'react';
 
 const StyledContainer = styled.div`
@@ -48,24 +48,26 @@ export const AdvancedSettingsToggle = ({
   const onChange = (newValue: boolean) => {
     setIsAdvancedModeEnabled(newValue);
   };
-  const inputId = useId();
+  const instanceId = useId();
+
+  const theme = useTheme();
 
   return (
     <StyledContainer>
       <StyledIconContainer>
         <IconPoint
           size={12}
-          color={MAIN_COLORS.yellow}
-          fill={MAIN_COLORS.yellow}
+          color={theme.color.yellow}
+          fill={theme.color.yellow}
         />
       </StyledIconContainer>
-      <StyledToggleContainer htmlFor={inputId}>
+      <StyledToggleContainer htmlFor={instanceId}>
         <StyledText>{label}</StyledText>
 
         <Toggle
-          id={inputId}
+          id={instanceId}
           onChange={onChange}
-          color={MAIN_COLORS.yellow}
+          color={theme.color.yellow}
           value={isAdvancedModeEnabled}
         />
       </StyledToggleContainer>

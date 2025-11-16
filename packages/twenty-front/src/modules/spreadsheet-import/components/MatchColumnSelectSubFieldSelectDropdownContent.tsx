@@ -1,23 +1,17 @@
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { isCompositeFieldType } from '@/object-record/object-filter-dropdown/utils/isCompositeFieldType';
-import { getSubFieldOptionKey } from '@/object-record/spreadsheet-import/utils/getSubFieldOptionKey';
-import { SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS } from '@/settings/data-model/constants/SettingsCompositeFieldTypeConfigs';
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { type SpreadsheetImportFieldOption } from '@/spreadsheet-import/types/SpreadsheetImportFieldOption';
+import { getSubFieldOptions } from '@/spreadsheet-import/utils/spreadsheetImportGetSubFieldOptions';
+import { hasNestedFields } from '@/spreadsheet-import/utils/spreadsheetImportHasNestedFields';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuHeader } from '@/ui/layout/dropdown/components/DropdownMenuHeader/DropdownMenuHeader';
 import { DropdownMenuHeaderLeftComponent } from '@/ui/layout/dropdown/components/DropdownMenuHeader/internal/DropdownMenuHeaderLeftComponent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { DropdownMenuSearchInput } from '@/ui/layout/dropdown/components/DropdownMenuSearchInput';
 import { DropdownMenuSeparator } from '@/ui/layout/dropdown/components/DropdownMenuSeparator';
+import { GenericDropdownContentWidth } from '@/ui/layout/dropdown/constants/GenericDropdownContentWidth';
 import { useState } from 'react';
-import { isDefined } from 'twenty-shared/utils';
-import {
-  IconChevronLeft,
-  OverflowingTextWithTooltip,
-  useIcons,
-} from 'twenty-ui/display';
-import { SelectOption } from 'twenty-ui/input';
+import { IconChevronLeft, OverflowingTextWithTooltip } from 'twenty-ui/display';
 import { MenuItem } from 'twenty-ui/navigation';
-import { ReadonlyDeep } from 'type-fest';
 
 export const MatchColumnSelectSubFieldSelectDropdownContent = ({
   fieldMetadataItem,
@@ -27,12 +21,10 @@ export const MatchColumnSelectSubFieldSelectDropdownContent = ({
 }: {
   fieldMetadataItem: FieldMetadataItem;
   onSubFieldSelect: (subFieldNameSelected: string) => void;
-  options: readonly ReadonlyDeep<SelectOption>[];
+  options: readonly Readonly<SpreadsheetImportFieldOption>[];
   onBack: () => void;
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
-
-  const { getIcon } = useIcons();
 
   const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.currentTarget.value;
@@ -49,27 +41,18 @@ export const MatchColumnSelectSubFieldSelectDropdownContent = ({
     onBack();
   };
 
-  if (!isCompositeFieldType(fieldMetadataItem.type)) {
+  if (!hasNestedFields(fieldMetadataItem)) {
     return <></>;
   }
 
-  const fieldMetadataItemSettings =
-    SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS[fieldMetadataItem.type];
-
-  const subFieldNamesThatExistInOptions = fieldMetadataItemSettings.subFields
-    .filter((subFieldName) => {
-      const optionKey = getSubFieldOptionKey(fieldMetadataItem, subFieldName);
-
-      const correspondingOption = options.find(
-        (option) => option.value === optionKey,
-      );
-
-      return isDefined(correspondingOption);
-    })
-    .filter((subFieldName) => subFieldName.includes(searchFilter));
+  const subFieldOptions = getSubFieldOptions(
+    fieldMetadataItem,
+    options,
+    searchFilter,
+  );
 
   return (
-    <DropdownContent>
+    <DropdownContent widthInPixels={GenericDropdownContentWidth.ExtraLarge}>
       <DropdownMenuHeader
         StartComponent={
           <DropdownMenuHeaderLeftComponent
@@ -87,23 +70,17 @@ export const MatchColumnSelectSubFieldSelectDropdownContent = ({
       />
       <DropdownMenuSeparator />
       <DropdownMenuItemsContainer hasMaxHeight>
-        {subFieldNamesThatExistInOptions.map((subFieldName) => (
-          <MenuItem
-            key={subFieldName}
-            onClick={() => handleSubFieldSelect(subFieldName)}
-            LeftIcon={getIcon(fieldMetadataItem.icon)}
-            text={
-              (fieldMetadataItemSettings.labelBySubField as any)[subFieldName]
-            }
-            disabled={
-              options.find(
-                (option) =>
-                  option.value ===
-                  getSubFieldOptionKey(fieldMetadataItem, subFieldName),
-              )?.disabled
-            }
-          />
-        ))}
+        {subFieldOptions.map(
+          ({ value, shortLabelForNestedField, Icon, disabled }) => (
+            <MenuItem
+              key={value}
+              onClick={() => handleSubFieldSelect(value)}
+              LeftIcon={Icon}
+              text={shortLabelForNestedField}
+              disabled={disabled}
+            />
+          ),
+        )}
       </DropdownMenuItemsContainer>
     </DropdownContent>
   );

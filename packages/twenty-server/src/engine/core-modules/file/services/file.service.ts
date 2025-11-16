@@ -1,21 +1,20 @@
 import { Injectable } from '@nestjs/common';
 
 import { basename, dirname, extname } from 'path';
-import { Stream } from 'stream';
+import { type Readable } from 'stream';
 
-import { v4 as uuidV4 } from 'uuid';
-import { buildSignedPath } from 'twenty-shared/utils';
 import { isNonEmptyString } from '@sniptt/guards';
+import { buildSignedPath } from 'twenty-shared/utils';
+import { v4 as uuidV4 } from 'uuid';
 
+import {
+  type FileTokenJwtPayload,
+  JwtTokenTypeEnum,
+} from 'src/engine/core-modules/auth/types/auth-context.type';
 import { FileStorageService } from 'src/engine/core-modules/file-storage/file-storage.service';
+import { extractFolderPathAndFilename } from 'src/engine/core-modules/file/utils/extract-folderpath-and-filename.utils';
 import { JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
-import { extractFilenameFromPath } from 'src/engine/core-modules/file/utils/extract-file-id-from-path.utils';
-
-export type FilePayloadToEncode = {
-  workspaceId: string;
-  filename: string;
-};
 
 @Injectable()
 export class FileService {
@@ -29,7 +28,7 @@ export class FileService {
     folderPath: string,
     filename: string,
     workspaceId: string,
-  ): Promise<Stream> {
+  ): Promise<Readable> {
     const workspaceFolderPath = `workspace-${workspaceId}/${folderPath}`;
 
     return await this.fileStorageService.read({
@@ -46,32 +45,32 @@ export class FileService {
     return buildSignedPath({
       path: url,
       token: this.encodeFileToken({
-        filename: extractFilenameFromPath(url),
+        filename: extractFolderPathAndFilename(url).filename,
         workspaceId,
       }),
     });
   }
 
-  encodeFileToken(payloadToEncode: FilePayloadToEncode) {
+  encodeFileToken(payloadToEncode: Omit<FileTokenJwtPayload, 'type' | 'sub'>) {
     const fileTokenExpiresIn = this.twentyConfigService.get(
       'FILE_TOKEN_EXPIRES_IN',
     );
+
+    const payload: FileTokenJwtPayload = {
+      ...payloadToEncode,
+      sub: payloadToEncode.workspaceId,
+      type: JwtTokenTypeEnum.FILE,
+    };
+
     const secret = this.jwtWrapperService.generateAppSecret(
-      'FILE',
+      payload.type,
       payloadToEncode.workspaceId,
     );
 
-    const signedPayload = this.jwtWrapperService.sign(
-      {
-        ...payloadToEncode,
-      },
-      {
-        secret,
-        expiresIn: fileTokenExpiresIn,
-      },
-    );
-
-    return signedPayload;
+    return this.jwtWrapperService.sign(payload, {
+      secret,
+      expiresIn: fileTokenExpiresIn,
+    });
   }
 
   async deleteFile({
@@ -93,6 +92,13 @@ export class FileService {
 
   async deleteWorkspaceFolder(workspaceId: string) {
     const workspaceFolderPath = `workspace-${workspaceId}`;
+
+    const isWorkspaceFolderFound =
+      await this.fileStorageService.checkFolderExists(workspaceFolderPath);
+
+    if (!isWorkspaceFolderFound) {
+      return;
+    }
 
     return await this.fileStorageService.delete({
       folderPath: workspaceFolderPath,

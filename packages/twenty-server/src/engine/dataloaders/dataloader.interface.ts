@@ -1,32 +1,44 @@
-import DataLoader from 'dataloader';
+import type DataLoader from 'dataloader';
 
 import {
-  FieldMetadataLoaderPayload,
-  RelationLoaderPayload,
-  RelationMetadataLoaderPayload,
+  type FieldMetadataLoaderPayload,
+  type IndexFieldMetadataLoaderPayload,
+  type IndexMetadataLoaderPayload,
+  type MorphRelationLoaderPayload,
+  type ObjectMetadataLoaderPayload,
+  type RelationLoaderPayload,
 } from 'src/engine/dataloaders/dataloader.service';
-import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
-import { RelationMetadataEntity } from 'src/engine/metadata-modules/relation-metadata/relation-metadata.entity';
+import { type FieldMetadataDTO } from 'src/engine/metadata-modules/field-metadata/dtos/field-metadata.dto';
+import { type RelationDTO } from 'src/engine/metadata-modules/field-metadata/dtos/relation.dto';
+import { type IndexFieldMetadataDTO } from 'src/engine/metadata-modules/index-metadata/dtos/index-field-metadata.dto';
+import { type IndexMetadataDTO } from 'src/engine/metadata-modules/index-metadata/dtos/index-metadata.dto';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
 
 export interface IDataloaders {
-  relationMetadataLoader: DataLoader<
-    RelationMetadataLoaderPayload,
-    RelationMetadataEntity
-  >;
+  relationLoader: DataLoader<RelationLoaderPayload, RelationDTO | null>;
 
-  relationLoader: DataLoader<
-    RelationLoaderPayload,
-    {
-      sourceObjectMetadata: ObjectMetadataEntity;
-      targetObjectMetadata: ObjectMetadataEntity;
-      sourceFieldMetadata: FieldMetadataEntity;
-      targetFieldMetadata: FieldMetadataEntity;
-    }
+  morphRelationLoader: DataLoader<
+    MorphRelationLoaderPayload,
+    RelationDTO[] | null
   >;
 
   fieldMetadataLoader: DataLoader<
     FieldMetadataLoaderPayload,
-    FieldMetadataEntity[]
+    FieldMetadataDTO[]
+  >;
+
+  indexMetadataLoader: DataLoader<
+    IndexMetadataLoaderPayload,
+    IndexMetadataDTO[]
+  >;
+
+  indexFieldMetadataLoader: DataLoader<
+    IndexFieldMetadataLoaderPayload,
+    IndexFieldMetadataDTO[]
+  >;
+
+  objectMetadataLoader: DataLoader<
+    ObjectMetadataLoaderPayload,
+    ObjectMetadataItemWithFieldMaps | null
   >;
 }

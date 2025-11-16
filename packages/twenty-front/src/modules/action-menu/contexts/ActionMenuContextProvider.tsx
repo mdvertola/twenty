@@ -1,45 +1,49 @@
-import { ActionMenuContextType } from '@/action-menu/contexts/ActionMenuContext';
+import { type ActionMenuContextType } from '@/action-menu/contexts/ActionMenuContext';
+import { ActionMenuContextProviderDefault } from '@/action-menu/contexts/ActionMenuContextProviderDefault';
 import { ActionMenuContextProviderWorkflowObjects } from '@/action-menu/contexts/ActionMenuContextProviderWorkflowObjects';
-import { ActionMenuContextProviderWorkflowsEnabled } from '@/action-menu/contexts/ActionMenuContextProviderWorkflowsEnabled';
-import { ActionMenuContextProviderWorkflowsNotEnabled } from '@/action-menu/contexts/ActionMenuContextProviderWorkflowsNotEnabled';
 import { contextStoreCurrentObjectMetadataItemIdComponentState } from '@/context-store/states/contextStoreCurrentObjectMetadataItemIdComponentState';
 import { objectMetadataItemsState } from '@/object-metadata/states/objectMetadataItemsState';
 import { CoreObjectNameSingular } from '@/object-metadata/types/CoreObjectNameSingular';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
-import { useIsFeatureEnabled } from '@/workspace/hooks/useIsFeatureEnabled';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { useRecoilValue } from 'recoil';
 import { isDefined } from 'twenty-shared/utils';
-import { FeatureFlagKey } from '~/generated-metadata/graphql';
 
 export const ActionMenuContextProvider = ({
   children,
   isInRightDrawer,
   displayType,
   actionMenuType,
+  objectMetadataItemOverride,
 }: Omit<ActionMenuContextType, 'actions'> & {
   children: React.ReactNode;
+  objectMetadataItemOverride?: ObjectMetadataItem;
 }) => {
-  const isWorkflowEnabled = useIsFeatureEnabled(
-    FeatureFlagKey.IS_WORKFLOW_ENABLED,
-  );
-
-  const contextStoreCurrentObjectMetadataItemId = useRecoilComponentValueV2(
+  const contextStoreCurrentObjectMetadataItemId = useRecoilComponentValue(
     contextStoreCurrentObjectMetadataItemIdComponentState,
   );
 
   const objectMetadataItems = useRecoilValue(objectMetadataItemsState);
 
-  const objectMetadataItem = objectMetadataItems.find(
-    (objectMetadataItem) =>
-      objectMetadataItem.id === contextStoreCurrentObjectMetadataItemId,
-  );
+  const objectMetadataItem =
+    objectMetadataItemOverride ??
+    objectMetadataItems.find(
+      (objectMetadataItem) =>
+        objectMetadataItem.id === contextStoreCurrentObjectMetadataItemId,
+    );
+
+  if (!isDefined(objectMetadataItem)) {
+    return null;
+  }
 
   const isWorkflowObject =
-    objectMetadataItem?.nameSingular === CoreObjectNameSingular.Workflow ||
-    objectMetadataItem?.nameSingular === CoreObjectNameSingular.WorkflowRun ||
-    objectMetadataItem?.nameSingular === CoreObjectNameSingular.WorkflowVersion;
+    objectMetadataItem?.nameSingular === CoreObjectNameSingular.Workflow;
 
-  if (isWorkflowEnabled && isDefined(objectMetadataItem) && isWorkflowObject) {
+  if (!isDefined(objectMetadataItem)) {
+    return null;
+  }
+
+  if (isWorkflowObject) {
     return (
       <ActionMenuContextProviderWorkflowObjects
         isInRightDrawer={isInRightDrawer}
@@ -52,32 +56,14 @@ export const ActionMenuContextProvider = ({
     );
   }
 
-  if (
-    isWorkflowEnabled &&
-    isDefined(objectMetadataItem) &&
-    (actionMenuType === 'command-menu' ||
-      actionMenuType === 'command-menu-show-page-action-menu-dropdown')
-  ) {
-    return (
-      <ActionMenuContextProviderWorkflowsEnabled
-        isInRightDrawer={isInRightDrawer}
-        displayType={displayType}
-        actionMenuType={actionMenuType}
-        objectMetadataItem={objectMetadataItem}
-      >
-        {children}
-      </ActionMenuContextProviderWorkflowsEnabled>
-    );
-  }
-
   return (
-    <ActionMenuContextProviderWorkflowsNotEnabled
+    <ActionMenuContextProviderDefault
       isInRightDrawer={isInRightDrawer}
       displayType={displayType}
       actionMenuType={actionMenuType}
       objectMetadataItem={objectMetadataItem}
     >
       {children}
-    </ActionMenuContextProviderWorkflowsNotEnabled>
+    </ActionMenuContextProviderDefault>
   );
 };

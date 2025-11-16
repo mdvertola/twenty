@@ -3,11 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import { Repository } from 'typeorm';
 
-import { FeatureFlagMap } from 'src/engine/core-modules/feature-flag/interfaces/feature-flag-map.interface';
+import { type FeatureFlagMap } from 'src/engine/core-modules/feature-flag/interfaces/feature-flag-map.interface';
 
-import { FeatureFlagDTO } from 'src/engine/core-modules/feature-flag/dtos/feature-flag-dto';
+import { type FeatureFlagDTO } from 'src/engine/core-modules/feature-flag/dtos/feature-flag-dto';
 import { FeatureFlagKey } from 'src/engine/core-modules/feature-flag/enums/feature-flag-key.enum';
-import { FeatureFlag } from 'src/engine/core-modules/feature-flag/feature-flag.entity';
+import { FeatureFlagEntity } from 'src/engine/core-modules/feature-flag/feature-flag.entity';
 import {
   FeatureFlagException,
   FeatureFlagExceptionCode,
@@ -19,8 +19,8 @@ import { WorkspaceFeatureFlagsMapCacheService } from 'src/engine/metadata-module
 @Injectable()
 export class FeatureFlagService {
   constructor(
-    @InjectRepository(FeatureFlag, 'core')
-    private readonly featureFlagRepository: Repository<FeatureFlag>,
+    @InjectRepository(FeatureFlagEntity)
+    private readonly featureFlagRepository: Repository<FeatureFlagEntity>,
     private readonly workspaceFeatureFlagsMapCacheService: WorkspaceFeatureFlagsMapCacheService,
   ) {}
 
@@ -72,10 +72,7 @@ export class FeatureFlagService {
       );
 
       await this.workspaceFeatureFlagsMapCacheService.recomputeFeatureFlagsMapCache(
-        {
-          workspaceId: workspaceId,
-          ignoreLock: true,
-        },
+        { workspaceId },
       );
     }
   }
@@ -90,7 +87,7 @@ export class FeatureFlagService {
     featureFlag: FeatureFlagKey;
     value: boolean;
     shouldBePublic?: boolean;
-  }): Promise<FeatureFlag> {
+  }): Promise<FeatureFlagEntity> {
     featureFlagValidator.assertIsFeatureFlagKey(
       featureFlag,
       new FeatureFlagException(
@@ -130,10 +127,7 @@ export class FeatureFlagService {
     const result = await this.featureFlagRepository.save(featureFlagToSave);
 
     await this.workspaceFeatureFlagsMapCacheService.recomputeFeatureFlagsMapCache(
-      {
-        workspaceId,
-        ignoreLock: true,
-      },
+      { workspaceId },
     );
 
     return result;

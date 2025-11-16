@@ -1,14 +1,14 @@
+import omit from 'lodash.omit';
 import { FieldMetadataType } from 'twenty-shared/types';
 
-import { ObjectMetadataInterface } from 'src/engine/metadata-modules/field-metadata/interfaces/object-metadata.interface';
-
-import { FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
-import { ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
-import { ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
-import { isFieldMetadataInterfaceOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { type FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
+import { type ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
+import { isFieldMetadataEntityOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
 
 export const generateObjectMetadataMaps = (
-  objectMetadataCollection: ObjectMetadataInterface[],
+  objectMetadataCollection: ObjectMetadataEntity[],
 ): ObjectMetadataMaps => {
   const objectMetadataMaps: ObjectMetadataMaps = {
     byId: {},
@@ -16,32 +16,39 @@ export const generateObjectMetadataMaps = (
   };
 
   for (const objectMetadata of objectMetadataCollection) {
-    const fieldsByIdMap: FieldMetadataMap = {};
-    const fieldsByNameMap: FieldMetadataMap = {};
-    const fieldsByJoinColumnNameMap: FieldMetadataMap = {};
+    const fieldIdByJoinColumnNameMap: Record<string, string> = {};
 
     for (const fieldMetadata of objectMetadata.fields) {
       if (
-        isFieldMetadataInterfaceOfType(
+        isFieldMetadataEntityOfType(
           fieldMetadata,
           FieldMetadataType.RELATION,
+        ) ||
+        isFieldMetadataEntityOfType(
+          fieldMetadata,
+          FieldMetadataType.MORPH_RELATION,
         )
       ) {
         if (fieldMetadata.settings?.joinColumnName) {
-          fieldsByJoinColumnNameMap[fieldMetadata.settings.joinColumnName] =
-            fieldMetadata;
+          fieldIdByJoinColumnNameMap[fieldMetadata.settings.joinColumnName] =
+            fieldMetadata.id;
         }
       }
-
-      fieldsByNameMap[fieldMetadata.name] = fieldMetadata;
-      fieldsByIdMap[fieldMetadata.id] = fieldMetadata;
     }
 
+    const fieldsByIdMap = objectMetadata.fields.reduce((acc, field) => {
+      acc[field.id] = field;
+
+      return acc;
+    }, {} as FieldMetadataMap);
+
     const processedObjectMetadata: ObjectMetadataItemWithFieldMaps = {
-      ...objectMetadata,
+      ...omit(objectMetadata, 'fields'),
       fieldsById: fieldsByIdMap,
-      fieldsByName: fieldsByNameMap,
-      fieldsByJoinColumnName: fieldsByJoinColumnNameMap,
+      fieldIdByName: Object.fromEntries(
+        Object.entries(fieldsByIdMap).map(([id, field]) => [field.name, id]),
+      ),
+      fieldIdByJoinColumnName: fieldIdByJoinColumnNameMap,
     };
 
     objectMetadataMaps.byId[objectMetadata.id] = processedObjectMetadata;

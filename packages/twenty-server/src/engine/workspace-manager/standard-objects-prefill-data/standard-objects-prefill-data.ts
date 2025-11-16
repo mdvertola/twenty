@@ -1,63 +1,20 @@
-import { DataSource } from 'typeorm';
+import { type DataSource, type EntityManager } from 'typeorm';
 
-import { seedWorkspaceFavorites } from 'src/database/typeorm-seeds/workspace/favorites';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
-import { WorkspaceEntityManager } from 'src/engine/twenty-orm/entity-manager/workspace-entity-manager';
-import { shouldSeedWorkspaceFavorite } from 'src/engine/utils/should-seed-workspace-favorite';
-import { companyPrefillData } from 'src/engine/workspace-manager/standard-objects-prefill-data/company';
-import { personPrefillData } from 'src/engine/workspace-manager/standard-objects-prefill-data/person';
-import { seedViewWithDemoData } from 'src/engine/workspace-manager/standard-objects-prefill-data/seed-view-with-demo-data';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { prefillCompanies } from 'src/engine/workspace-manager/standard-objects-prefill-data/prefill-companies';
+import { prefillPeople } from 'src/engine/workspace-manager/standard-objects-prefill-data/prefill-people';
+import { prefillWorkflows } from 'src/engine/workspace-manager/standard-objects-prefill-data/prefill-workflows';
 
 export const standardObjectsPrefillData = async (
-  mainDataSource: DataSource,
+  dataSource: DataSource,
   schemaName: string,
-  objectMetadata: ObjectMetadataEntity[],
+  objectMetadataItems: ObjectMetadataEntity[],
 ) => {
-  const objectMetadataMap = objectMetadata.reduce((acc, object) => {
-    if (!object.standardId) {
-      throw new Error('Standard Id is not set for object: ${object.name}');
-    }
+  dataSource.transaction(async (entityManager: EntityManager) => {
+    await prefillCompanies(entityManager, schemaName);
 
-    // @ts-expect-error legacy noImplicitAny
-    acc[object.standardId] = {
-      id: object.id,
-      fields: object.fields.reduce((acc, field) => {
-        if (!field.standardId) {
-          throw new Error('Standard Id is not set for field: ${field.name}');
-        }
+    await prefillPeople(entityManager, schemaName);
 
-        // @ts-expect-error legacy noImplicitAny
-        acc[field.standardId] = field.id;
-
-        return acc;
-      }, {}),
-    };
-
-    return acc;
-  }, {});
-
-  mainDataSource.transaction(async (entityManager: WorkspaceEntityManager) => {
-    await companyPrefillData(entityManager, schemaName);
-    await personPrefillData(entityManager, schemaName);
-    const viewDefinitionsWithId = await seedViewWithDemoData(
-      entityManager,
-      schemaName,
-      objectMetadataMap,
-    );
-
-    await seedWorkspaceFavorites(
-      viewDefinitionsWithId
-        .filter(
-          (view) =>
-            view.key === 'INDEX' &&
-            shouldSeedWorkspaceFavorite(
-              view.objectMetadataId,
-              objectMetadataMap,
-            ),
-        )
-        .map((view) => view.id),
-      entityManager,
-      schemaName,
-    );
+    await prefillWorkflows(entityManager, schemaName, objectMetadataItems);
   });
 };

@@ -1,16 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { isDefined } from 'twenty-shared/utils';
+import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
 import { Repository } from 'typeorm';
+import { type ActorMetadata } from 'twenty-shared/types';
 
 import { buildCreatedByFromApiKey } from 'src/engine/core-modules/actor/utils/build-created-by-from-api-key.util';
 import { buildCreatedByFromFullNameMetadata } from 'src/engine/core-modules/actor/utils/build-created-by-from-full-name-metadata.util';
-import { AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
-import { ActorMetadata } from 'src/engine/metadata-modules/field-metadata/composite-types/actor.composite-type';
+import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
+import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
+import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
+import { getObjectMetadataMapItemByNameSingular } from 'src/engine/metadata-modules/utils/get-object-metadata-map-item-by-name-singular.util';
+import { WorkspaceMetadataCacheService } from 'src/engine/metadata-modules/workspace-metadata-cache/services/workspace-metadata-cache.service';
 import { TwentyORMGlobalManager } from 'src/engine/twenty-orm/twenty-orm-global.manager';
 import { WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
-import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CreateInput = Record<string, any>;
@@ -20,9 +23,10 @@ export class CreatedByFromAuthContextService {
   private readonly logger = new Logger(CreatedByFromAuthContextService.name);
 
   constructor(
-    @InjectRepository(FieldMetadataEntity, 'metadata')
+    @InjectRepository(FieldMetadataEntity)
     private readonly fieldMetadataRepository: Repository<FieldMetadataEntity>,
     private readonly twentyORMGlobalManager: TwentyORMGlobalManager,
+    private readonly workspaceMetadataCacheService: WorkspaceMetadataCacheService,
   ) {}
 
   async injectCreatedBy(
@@ -30,22 +34,52 @@ export class CreatedByFromAuthContextService {
     objectMetadataNameSingular: string,
     authContext: AuthContext,
   ): Promise<CreateInput[]> {
-    // TODO: Once all objects have it, we can remove this check
-    const createdByFieldMetadata = await this.fieldMetadataRepository.findOne({
-      where: {
-        object: {
-          nameSingular: objectMetadataNameSingular,
-        },
-        name: 'createdBy',
-        workspaceId: authContext.workspace.id,
-      },
-    });
+    const workspace = authContext.workspace;
 
-    if (!createdByFieldMetadata) {
+    assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
+    const { objectMetadataMaps } =
+      await this.workspaceMetadataCacheService.getExistingOrRecomputeMetadataMaps(
+        {
+          workspaceId: workspace.id,
+        },
+      );
+
+    this.logger.log(
+      `Injecting createdBy from auth context for object ${objectMetadataNameSingular} and workspace ${workspace.id}`,
+    );
+
+    const objectMetadata = getObjectMetadataMapItemByNameSingular(
+      objectMetadataMaps,
+      objectMetadataNameSingular,
+    );
+
+    this.logger.log(
+      `Object metadata found with fields: ${Object.keys(objectMetadata?.fieldIdByName ?? {})}`,
+    );
+
+    if (!isDefined(objectMetadata?.fieldIdByName['createdBy'])) {
+      this.logger.log(
+        `CreatedBy field not found in object metadata, skipping injection`,
+      );
+
       return records;
     }
 
     const clonedRecords = structuredClone(records);
+
+    // Check if all records already have createdBy with name populated
+    // If so, skip building from auth context (e.g., workflows provide explicit createdBy)
+    const recordsArray = Array.isArray(clonedRecords)
+      ? clonedRecords
+      : [clonedRecords];
+    const allRecordsHaveCreatedBy = recordsArray.every(
+      (record) => record.createdBy?.name,
+    );
+
+    if (allRecordsHaveCreatedBy) {
+      return clonedRecords;
+    }
 
     const createdBy = await this.buildCreatedBy(authContext);
 
@@ -78,6 +112,8 @@ export class CreatedByFromAuthContextService {
   ): Promise<ActorMetadata> {
     const { workspace, workspaceMemberId, user, apiKey } = authContext;
 
+    assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
     // TODO: remove that code once we have the workspace member id in all tokens
     if (isDefined(workspaceMemberId) && isDefined(user)) {
       return buildCreatedByFromFullNameMetadata({
@@ -96,6 +132,7 @@ export class CreatedByFromAuthContextService {
         await this.twentyORMGlobalManager.getRepositoryForWorkspace<WorkspaceMemberWorkspaceEntity>(
           workspace.id,
           'workspaceMember',
+          { shouldBypassPermissionChecks: true },
         );
 
       const workspaceMember = await workspaceMemberRepository.findOneOrFail({

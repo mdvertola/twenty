@@ -1,9 +1,11 @@
+import { SidePanelHeader } from '@/command-menu/components/SidePanelHeader';
+import { workflowRunIteratorSubStepIterationIndexComponentState } from '@/command-menu/pages/workflow/step/view-run/states/workflowRunIteratorSubStepIterationIndexComponentState';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { useWorkflowRun } from '@/workflow/hooks/useWorkflowRun';
 import { useWorkflowRunIdOrThrow } from '@/workflow/hooks/useWorkflowRunIdOrThrow';
 import { getStepDefinitionOrThrow } from '@/workflow/utils/getStepDefinitionOrThrow';
 import { WorkflowRunStepJsonContainer } from '@/workflow/workflow-steps/components/WorkflowRunStepJsonContainer';
-import { WorkflowStepHeader } from '@/workflow/workflow-steps/components/WorkflowStepHeader';
-import { getWorkflowPreviousStepId } from '@/workflow/workflow-steps/utils/getWorkflowPreviousStepId';
+import { getIsDescendantOfIterator } from '@/workflow/workflow-steps/utils/getIsDescendantOfIterator';
 import { getWorkflowRunStepContext } from '@/workflow/workflow-steps/utils/getWorkflowRunStepContext';
 import { getWorkflowVariablesUsedInStep } from '@/workflow/workflow-steps/utils/getWorkflowVariablesUsedInStep';
 import { getActionHeaderTypeOrThrow } from '@/workflow/workflow-steps/workflow-actions/utils/getActionHeaderTypeOrThrow';
@@ -14,11 +16,12 @@ import { useLingui } from '@lingui/react/macro';
 import { isDefined } from 'twenty-shared/utils';
 import { IconBrackets, useIcons } from 'twenty-ui/display';
 import {
-  GetJsonNodeHighlighting,
+  type GetJsonNodeHighlighting,
   JsonNestedNode,
   JsonTreeContextProvider,
-  ShouldExpandNodeInitiallyProps,
+  type ShouldExpandNodeInitiallyProps,
 } from 'twenty-ui/json-visualizer';
+import { type JsonValue } from 'type-fest';
 import { useCopyToClipboard } from '~/hooks/useCopyToClipboard';
 
 export const WorkflowRunStepInputDetail = ({ stepId }: { stepId: string }) => {
@@ -29,35 +32,31 @@ export const WorkflowRunStepInputDetail = ({ stepId }: { stepId: string }) => {
 
   const workflowRunId = useWorkflowRunIdOrThrow();
   const workflowRun = useWorkflowRun({ workflowRunId });
-  const step = workflowRun?.output?.flow.steps.find(
+  const step = workflowRun?.state?.flow.steps.find(
     (step) => step.id === stepId,
+  );
+
+  const workflowRunIteratorSubStepIterationIndex = useRecoilComponentValue(
+    workflowRunIteratorSubStepIterationIndexComponentState,
   );
 
   if (
     !(
       isDefined(workflowRun) &&
-      isDefined(workflowRun.context) &&
-      isDefined(workflowRun.output?.flow) &&
+      isDefined(workflowRun.state?.stepInfos) &&
+      isDefined(workflowRun.state?.flow) &&
       isDefined(step)
     )
   ) {
     return null;
   }
 
-  const previousStepId = getWorkflowPreviousStepId({
-    stepId,
-    steps: workflowRun.output.flow.steps,
-  });
-
-  if (previousStepId === undefined) {
-    return null;
-  }
-
   const stepDefinition = getStepDefinitionOrThrow({
     stepId,
-    trigger: workflowRun.output.flow.trigger,
-    steps: workflowRun.output.flow.steps,
+    trigger: workflowRun.state.flow.trigger,
+    steps: workflowRun.state.flow.steps,
   });
+
   if (stepDefinition?.type !== 'action') {
     throw new Error('The input tab must be rendered with an action step.');
   }
@@ -76,13 +75,22 @@ export const WorkflowRunStepInputDetail = ({ stepId }: { stepId: string }) => {
   const allVariablesUsedInStep = Array.from(variablesUsedInStep);
 
   const stepContext = getWorkflowRunStepContext({
-    context: workflowRun.context,
-    flow: workflowRun.output.flow,
+    stepInfos: workflowRun.state.stepInfos,
+    flow: workflowRun.state.flow,
     stepId,
+    currentLoopIterationIndex: getIsDescendantOfIterator({
+      stepId,
+      steps: workflowRun.state.flow.steps,
+    })
+      ? workflowRunIteratorSubStepIterationIndex
+      : undefined,
   });
+
   if (stepContext.length === 0) {
     throw new Error('The input tab must be rendered with a non-empty context.');
   }
+
+  const previousStepId = stepContext[stepContext.length - 1].id;
 
   const getNodeHighlighting: GetJsonNodeHighlighting = (keyPath: string) => {
     if (variablesUsedInStep.has(keyPath)) {
@@ -107,7 +115,7 @@ export const WorkflowRunStepInputDetail = ({ stepId }: { stepId: string }) => {
 
   return (
     <>
-      <WorkflowStepHeader
+      <SidePanelHeader
         disabled
         Icon={getIcon(headerIcon)}
         iconColor={headerIconColor}
@@ -132,7 +140,7 @@ export const WorkflowRunStepInputDetail = ({ stepId }: { stepId: string }) => {
             elements={stepContext.map(({ id, name, context }) => ({
               id,
               label: name,
-              value: context,
+              value: context as JsonValue,
             }))}
             Icon={IconBrackets}
             depth={0}

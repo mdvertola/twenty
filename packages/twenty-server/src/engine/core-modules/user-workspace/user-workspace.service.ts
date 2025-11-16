@@ -1,53 +1,54 @@
-/* eslint-disable @nx/workspace-inject-workspace-repository */
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { TypeOrmQueryService } from '@ptc-org/nestjs-query-typeorm';
-import { APP_LOCALES, SOURCE_LOCALE } from 'twenty-shared/translations';
-import { isDefined } from 'twenty-shared/utils';
-import { IsNull, Not, Repository } from 'typeorm';
+import { type APP_LOCALES, SOURCE_LOCALE } from 'twenty-shared/translations';
+import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
+import { type QueryRunner, IsNull, Not, Repository } from 'typeorm';
 
+import { FileStorageExceptionCode } from 'src/engine/core-modules/file-storage/interfaces/file-storage-exception';
 import { FileFolder } from 'src/engine/core-modules/file/interfaces/file-folder.interface';
 
-import { DatabaseEventAction } from 'src/engine/api/graphql/graphql-query-runner/enums/database-event-action';
-import { USER_SIGNUP_EVENT_NAME } from 'src/engine/api/graphql/workspace-query-runner/constants/user-signup-event-name.constants';
+import { type AppTokenEntity } from 'src/engine/core-modules/app-token/app-token.entity';
+import { ApprovedAccessDomainService } from 'src/engine/core-modules/approved-access-domain/services/approved-access-domain.service';
 import {
   AuthException,
   AuthExceptionCode,
 } from 'src/engine/core-modules/auth/auth.exception';
-import { AvailableWorkspaceOutput } from 'src/engine/core-modules/auth/dto/available-workspaces.output';
-import { DomainManagerService } from 'src/engine/core-modules/domain-manager/services/domain-manager.service';
+import { type AvailableWorkspace } from 'src/engine/core-modules/auth/dto/available-workspaces.output';
+import { LoginTokenService } from 'src/engine/core-modules/auth/token/services/login-token.service';
+import { WorkspaceDomainsService } from 'src/engine/core-modules/domain/workspace-domains/services/workspace-domains.service';
 import { FileUploadService } from 'src/engine/core-modules/file/file-upload/services/file-upload.service';
 import { FileService } from 'src/engine/core-modules/file/services/file.service';
-import { UserWorkspace } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
-import { User } from 'src/engine/core-modules/user/user.entity';
-import { userValidator } from 'src/engine/core-modules/user/user.validate';
+import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
+import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { WorkspaceInvitationService } from 'src/engine/core-modules/workspace-invitation/services/workspace-invitation.service';
-import { Workspace } from 'src/engine/core-modules/workspace/workspace.entity';
+import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
+import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { workspaceValidator } from 'src/engine/core-modules/workspace/workspace.validate';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import {
   PermissionsException,
   PermissionsExceptionCode,
   PermissionsExceptionMessage,
 } from 'src/engine/metadata-modules/permissions/permissions.exception';
+import { RoleTargetsEntity } from 'src/engine/metadata-modules/role/role-targets.entity';
 import { UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 import { TwentyORMGlobalManager } from 'src/engine/twenty-orm/twenty-orm-global.manager';
-import { WorkspaceEventEmitter } from 'src/engine/workspace-event-emitter/workspace-event-emitter';
 import { WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
 import { assert } from 'src/utils/assert';
+import { getDomainNameByEmail } from 'src/utils/get-domain-name-by-email';
 
-export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
+export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspaceEntity> {
   constructor(
-    @InjectRepository(UserWorkspace, 'core')
-    private readonly userWorkspaceRepository: Repository<UserWorkspace>,
-    @InjectRepository(User, 'core')
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(ObjectMetadataEntity, 'metadata')
-    private readonly objectMetadataRepository: Repository<ObjectMetadataEntity>,
-
+    @InjectRepository(UserWorkspaceEntity)
+    private readonly userWorkspaceRepository: Repository<UserWorkspaceEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(RoleTargetsEntity)
+    private readonly roleTargetsRepository: Repository<RoleTargetsEntity>,
     private readonly workspaceInvitationService: WorkspaceInvitationService,
-    private readonly workspaceEventEmitter: WorkspaceEventEmitter,
-    private readonly domainManagerService: DomainManagerService,
+    private readonly workspaceDomainsService: WorkspaceDomainsService,
+    private readonly loginTokenService: LoginTokenService,
+    private readonly approvedAccessDomainService: ApprovedAccessDomainService,
     private readonly twentyORMGlobalManager: TwentyORMGlobalManager,
     private readonly userRoleService: UserRoleService,
     private readonly fileUploadService: FileUploadService,
@@ -56,17 +57,20 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
     super(userWorkspaceRepository);
   }
 
-  async create({
-    userId,
-    workspaceId,
-    isExistingUser,
-    pictureUrl,
-  }: {
-    userId: string;
-    workspaceId: string;
-    isExistingUser: boolean;
-    pictureUrl?: string;
-  }): Promise<UserWorkspace> {
+  async create(
+    {
+      userId,
+      workspaceId,
+      isExistingUser,
+      pictureUrl,
+    }: {
+      userId: string;
+      workspaceId: string;
+      isExistingUser: boolean;
+      pictureUrl?: string;
+    },
+    queryRunner?: QueryRunner,
+  ): Promise<UserWorkspaceEntity> {
     const defaultAvatarUrl = await this.computeDefaultAvatarUrl(
       userId,
       workspaceId,
@@ -80,23 +84,17 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
       defaultAvatarUrl,
     });
 
-    this.workspaceEventEmitter.emitCustomBatchEvent(
-      USER_SIGNUP_EVENT_NAME,
-      [{ userId }],
-      workspaceId,
-    );
-
-    return this.userWorkspaceRepository.save(userWorkspace);
+    return queryRunner
+      ? queryRunner.manager.save(UserWorkspaceEntity, userWorkspace)
+      : this.userWorkspaceRepository.save(userWorkspace);
   }
 
-  async createWorkspaceMember(workspaceId: string, user: User) {
+  async createWorkspaceMember(workspaceId: string, user: UserEntity) {
     const workspaceMemberRepository =
       await this.twentyORMGlobalManager.getRepositoryForWorkspace<WorkspaceMemberWorkspaceEntity>(
         workspaceId,
         'workspaceMember',
-        {
-          shouldBypassPermissionChecks: true,
-        },
+        { shouldBypassPermissionChecks: true },
       );
 
     const userWorkspace = await this.userWorkspaceRepository.findOneOrFail({
@@ -128,32 +126,12 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
       workspaceMember?.length === 1,
       `Error while creating workspace member ${user.email} on workspace ${workspaceId}`,
     );
-    const objectMetadata = await this.objectMetadataRepository.findOneOrFail({
-      where: {
-        nameSingular: 'workspaceMember',
-        workspaceId,
-      },
-    });
-
-    this.workspaceEventEmitter.emitDatabaseBatchEvent({
-      objectMetadataNameSingular: 'workspaceMember',
-      action: DatabaseEventAction.CREATED,
-      events: [
-        {
-          recordId: workspaceMember[0].id,
-          objectMetadata,
-          properties: {
-            after: workspaceMember[0],
-          },
-        },
-      ],
-      workspaceId,
-    });
   }
 
   async addUserToWorkspaceIfUserNotInWorkspace(
-    user: User,
-    workspace: Workspace,
+    user: UserEntity,
+    workspace: WorkspaceEntity,
+    queryRunner?: QueryRunner,
   ) {
     let userWorkspace = await this.checkUserWorkspaceExists(
       user.id,
@@ -161,11 +139,14 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
     );
 
     if (!userWorkspace) {
-      userWorkspace = await this.create({
-        userId: user.id,
-        workspaceId: workspace.id,
-        isExistingUser: true,
-      });
+      userWorkspace = await this.create(
+        {
+          userId: user.id,
+          workspaceId: workspace.id,
+          isExistingUser: true,
+        },
+        queryRunner,
+      );
 
       await this.createWorkspaceMember(workspace.id, user);
 
@@ -178,15 +159,19 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
         );
       }
 
-      await this.userRoleService.assignRoleToUserWorkspace({
-        workspaceId: workspace.id,
-        userWorkspaceId: userWorkspace.id,
-        roleId: defaultRoleId,
-      });
+      await this.userRoleService.assignRoleToUserWorkspace(
+        {
+          workspaceId: workspace.id,
+          userWorkspaceId: userWorkspace.id,
+          roleId: defaultRoleId,
+        },
+        queryRunner,
+      );
 
       await this.workspaceInvitationService.invalidateWorkspaceInvitation(
         workspace.id,
         user.email,
+        queryRunner,
       );
     }
   }
@@ -200,7 +185,7 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
   async checkUserWorkspaceExists(
     userId: string,
     workspaceId: string,
-  ): Promise<UserWorkspace | null> {
+  ): Promise<UserWorkspaceEntity | null> {
     return this.userWorkspaceRepository.findOneBy({
       userId,
       workspaceId,
@@ -226,9 +211,9 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
       where: {
         id: userId,
       },
-      relations: ['workspaces', 'workspaces.workspace'],
+      relations: { userWorkspaces: { workspace: true } },
       order: {
-        workspaces: {
+        userWorkspaces: {
           workspace: {
             createdAt: 'ASC',
           },
@@ -236,9 +221,9 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
       },
     });
 
-    const workspace = user?.workspaces?.[0]?.workspace;
+    const workspace = user?.userWorkspaces?.[0]?.workspace;
 
-    workspaceValidator.assertIsDefinedOrThrow(
+    assertIsDefinedOrThrow(
       workspace,
       new AuthException(
         'Workspace not found',
@@ -249,48 +234,84 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
     return workspace;
   }
 
+  async countUserWorkspaces(userId: string): Promise<number> {
+    return await this.userWorkspaceRepository.count({ where: { userId } });
+  }
+
+  async deleteUserWorkspace({
+    userWorkspaceId,
+    softDelete = false,
+  }: {
+    userWorkspaceId: string;
+    softDelete?: boolean;
+  }): Promise<void> {
+    if (softDelete) {
+      await this.roleTargetsRepository.softRemove({ userWorkspaceId });
+      await this.userWorkspaceRepository.softDelete({ id: userWorkspaceId });
+    } else {
+      await this.roleTargetsRepository.delete({ userWorkspaceId }); // TODO remove once userWorkspace foreign key is added on roleTarget
+      await this.userWorkspaceRepository.delete({ id: userWorkspaceId });
+    }
+  }
+
   async findAvailableWorkspacesByEmail(email: string) {
     const user = await this.userRepository.findOne({
       where: {
         email,
       },
-      relations: [
-        'workspaces',
-        'workspaces.workspace',
-        'workspaces.workspace.workspaceSSOIdentityProviders',
-      ],
+      relations: {
+        userWorkspaces: {
+          workspace: {
+            workspaceSSOIdentityProviders: true,
+            approvedAccessDomains: true,
+          },
+        },
+      },
     });
 
-    userValidator.assertIsDefinedOrThrow(
-      user,
-      new AuthException('User not found', AuthExceptionCode.USER_NOT_FOUND),
+    const alreadyMemberWorkspaces = user
+      ? user.userWorkspaces.map(({ workspace }) => ({ workspace }))
+      : [];
+
+    const alreadyMemberWorkspacesIds = alreadyMemberWorkspaces.map(
+      ({ workspace }) => workspace.id,
     );
 
-    return user.workspaces.map<AvailableWorkspaceOutput>((userWorkspace) => ({
-      id: userWorkspace.workspaceId,
-      displayName: userWorkspace.workspace.displayName,
-      workspaceUrls: this.domainManagerService.getWorkspaceUrls(
-        userWorkspace.workspace,
-      ),
-      logo: userWorkspace.workspace.logo,
-      sso: userWorkspace.workspace.workspaceSSOIdentityProviders.reduce(
-        (acc, identityProvider) =>
-          acc.concat(
-            identityProvider.status === 'Inactive'
-              ? []
-              : [
-                  {
-                    id: identityProvider.id,
-                    name: identityProvider.name,
-                    issuer: identityProvider.issuer,
-                    type: identityProvider.type,
-                    status: identityProvider.status,
-                  },
-                ],
-          ),
-        [] as AvailableWorkspaceOutput['sso'],
-      ),
-    }));
+    const workspacesFromApprovedAccessDomain = (
+      await this.approvedAccessDomainService.findValidatedApprovedAccessDomainWithWorkspacesAndSSOIdentityProvidersDomain(
+        getDomainNameByEmail(email),
+      )
+    )
+      .filter(
+        ({ workspace }) => !alreadyMemberWorkspacesIds.includes(workspace.id),
+      )
+      .map(({ workspace }) => ({ workspace }));
+
+    const workspacesFromApprovedAccessDomainIds =
+      workspacesFromApprovedAccessDomain.map(({ workspace }) => workspace.id);
+
+    const workspacesFromInvitations = (
+      await this.workspaceInvitationService.findInvitationsByEmail(email)
+    )
+      .filter(
+        ({ workspace }) =>
+          ![
+            ...alreadyMemberWorkspacesIds,
+            ...workspacesFromApprovedAccessDomainIds,
+          ].includes(workspace.id),
+      )
+      .map((appToken) => ({
+        workspace: appToken.workspace,
+        appToken,
+      }));
+
+    return {
+      availableWorkspacesForSignIn: alreadyMemberWorkspaces,
+      availableWorkspacesForSignUp: [
+        ...workspacesFromApprovedAccessDomain,
+        ...workspacesFromInvitations,
+      ],
+    };
   }
 
   async getUserWorkspaceForUserOrThrow({
@@ -299,12 +320,13 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
   }: {
     userId: string;
     workspaceId: string;
-  }): Promise<UserWorkspace> {
+  }): Promise<UserWorkspaceEntity> {
     const userWorkspace = await this.userWorkspaceRepository.findOne({
       where: {
         userId,
         workspaceId,
       },
+      relations: ['twoFactorAuthenticationMethods'],
     });
 
     if (!isDefined(userWorkspace)) {
@@ -325,6 +347,7 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
       await this.twentyORMGlobalManager.getRepositoryForWorkspace<WorkspaceMemberWorkspaceEntity>(
         workspaceId,
         'workspaceMember',
+        { shouldBypassPermissionChecks: true },
       );
 
     const workspaceMember = await workspaceMemberRepository.findOne({
@@ -359,17 +382,24 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
 
       if (!isDefined(userWorkspace?.defaultAvatarUrl)) return;
 
-      const [_, subFolder, filename] =
-        await this.fileService.copyFileFromWorkspaceToWorkspace(
-          userWorkspace.workspaceId,
-          userWorkspace.defaultAvatarUrl,
-          workspaceId,
-        );
+      try {
+        const [_, subFolder, filename] =
+          await this.fileService.copyFileFromWorkspaceToWorkspace(
+            userWorkspace.workspaceId,
+            userWorkspace.defaultAvatarUrl,
+            workspaceId,
+          );
 
-      return `${subFolder}/${filename}`;
+        return `${subFolder}/${filename}`;
+      } catch (error) {
+        if (error.code === FileStorageExceptionCode.FILE_NOT_FOUND) {
+          return;
+        }
+        throw error;
+      }
     }
 
-    if (!isDefined(pictureUrl)) return;
+    if (!isDefined(pictureUrl) || pictureUrl === '') return;
 
     const { files } = await this.fileUploadService.uploadImageFromUrl({
       imageUrl: pictureUrl,
@@ -382,5 +412,85 @@ export class UserWorkspaceService extends TypeOrmQueryService<UserWorkspace> {
     }
 
     return files[0].path;
+  }
+
+  castWorkspaceToAvailableWorkspace(workspace: WorkspaceEntity) {
+    return {
+      id: workspace.id,
+      displayName: workspace.displayName,
+      workspaceUrls: this.workspaceDomainsService.getWorkspaceUrls(workspace),
+      logo: workspace.logo
+        ? this.fileService.signFileUrl({
+            url: workspace.logo,
+            workspaceId: workspace.id,
+          })
+        : workspace.logo,
+      sso:
+        workspace.workspaceSSOIdentityProviders?.reduce(
+          (acc, identityProvider) =>
+            acc.concat(
+              identityProvider.status === 'Inactive'
+                ? []
+                : [
+                    {
+                      id: identityProvider.id,
+                      name: identityProvider.name,
+                      issuer: identityProvider.issuer,
+                      type: identityProvider.type,
+                      status: identityProvider.status,
+                    },
+                  ],
+            ),
+          [] as AvailableWorkspace['sso'],
+        ) ?? [],
+    };
+  }
+
+  async setLoginTokenToAvailableWorkspacesWhenAuthProviderMatch(
+    availableWorkspaces: {
+      availableWorkspacesForSignUp: Array<{
+        workspace: WorkspaceEntity;
+        appToken?: AppTokenEntity;
+      }>;
+      availableWorkspacesForSignIn: Array<{
+        workspace: WorkspaceEntity;
+        appToken?: AppTokenEntity;
+      }>;
+    },
+    user: UserEntity,
+    authProvider: AuthProviderEnum,
+  ) {
+    return {
+      availableWorkspacesForSignUp:
+        availableWorkspaces.availableWorkspacesForSignUp.map(
+          ({ workspace, appToken }) => {
+            return {
+              ...this.castWorkspaceToAvailableWorkspace(workspace),
+              ...(appToken ? { personalInviteToken: appToken.value } : {}),
+            };
+          },
+        ),
+      availableWorkspacesForSignIn: await Promise.all(
+        availableWorkspaces.availableWorkspacesForSignIn.map(
+          async ({ workspace }) => {
+            return {
+              ...this.castWorkspaceToAvailableWorkspace(workspace),
+              loginToken: workspaceValidator.isAuthEnabled(
+                authProvider,
+                workspace,
+              )
+                ? (
+                    await this.loginTokenService.generateLoginToken(
+                      user.email,
+                      workspace.id,
+                      AuthProviderEnum.Password,
+                    )
+                  ).token
+                : undefined,
+            };
+          },
+        ),
+      ),
+    };
   }
 }

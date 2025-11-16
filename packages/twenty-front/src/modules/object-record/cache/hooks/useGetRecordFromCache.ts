@@ -1,14 +1,13 @@
-import { useApolloClient } from '@apollo/client';
 import { useCallback } from 'react';
-import { useRecoilValue } from 'recoil';
 
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
-import { objectMetadataItemsState } from '@/object-metadata/states/objectMetadataItemsState';
+import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { getRecordFromCache } from '@/object-record/cache/utils/getRecordFromCache';
-import { RecordGqlFields } from '@/object-record/graphql/types/RecordGqlFields';
-import { generateDepthOneRecordGqlFields } from '@/object-record/graphql/utils/generateDepthOneRecordGqlFields';
+import { useGenerateDepthRecordGqlFieldsFromObject } from '@/object-record/graphql/record-gql-fields/hooks/useGenerateDepthRecordGqlFieldsFromObject';
+import { type RecordGqlFields } from '@/object-record/graphql/record-gql-fields/types/RecordGqlFields';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 
 export const useGetRecordFromCache = ({
   objectNameSingular,
@@ -20,19 +19,24 @@ export const useGetRecordFromCache = ({
   const { objectMetadataItem } = useObjectMetadataItem({
     objectNameSingular,
   });
+  const { objectMetadataItems } = useObjectMetadataItems();
 
-  const appliedRecordGqlFields =
-    recordGqlFields ?? generateDepthOneRecordGqlFields({ objectMetadataItem });
-
-  const objectMetadataItems = useRecoilValue(objectMetadataItemsState);
   const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
 
-  const apolloClient = useApolloClient();
+  const { recordGqlFields: depthOneRecordGqlFields } =
+    useGenerateDepthRecordGqlFieldsFromObject({
+      objectNameSingular,
+      depth: 1,
+    });
+
+  const appliedRecordGqlFields = recordGqlFields ?? depthOneRecordGqlFields;
+
+  const apolloCoreClient = useApolloCoreClient();
 
   return useCallback(
     <T extends ObjectRecord = ObjectRecord>(
       recordId: string,
-      cache = apolloClient.cache,
+      cache = apolloCoreClient.cache,
     ) => {
       return getRecordFromCache<T>({
         cache,
@@ -44,7 +48,7 @@ export const useGetRecordFromCache = ({
       });
     },
     [
-      apolloClient.cache,
+      apolloCoreClient.cache,
       objectMetadataItems,
       objectMetadataItem,
       appliedRecordGqlFields,

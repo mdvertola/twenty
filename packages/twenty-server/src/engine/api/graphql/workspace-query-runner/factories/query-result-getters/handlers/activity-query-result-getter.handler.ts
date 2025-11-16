@@ -1,22 +1,21 @@
-import { QueryResultGetterHandlerInterface } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-getter-handler.interface';
+import { Injectable } from '@nestjs/common';
 
-import { FeatureFlagService } from 'src/engine/core-modules/feature-flag/services/feature-flag.service';
+import { type QueryResultGetterHandlerInterface } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-getter-handler.interface';
+
 import { FileService } from 'src/engine/core-modules/file/services/file.service';
-import { NoteWorkspaceEntity } from 'src/modules/note/standard-objects/note.workspace-entity';
-import { TaskWorkspaceEntity } from 'src/modules/task/standard-objects/task.workspace-entity';
+import { type NoteWorkspaceEntity } from 'src/modules/note/standard-objects/note.workspace-entity';
+import { type TaskWorkspaceEntity } from 'src/modules/task/standard-objects/task.workspace-entity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RichTextBlock = Record<string, any>;
 
 type RichTextBody = RichTextBlock[];
 
+@Injectable()
 export class ActivityQueryResultGetterHandler
   implements QueryResultGetterHandlerInterface
 {
-  constructor(
-    private readonly fileService: FileService,
-    private readonly featureFlagService: FeatureFlagService,
-  ) {}
+  constructor(private readonly fileService: FileService) {}
 
   async handle(
     activity: TaskWorkspaceEntity | NoteWorkspaceEntity,
@@ -32,7 +31,7 @@ export class ActivityQueryResultGetterHandler
 
     try {
       blocknote = JSON.parse(blocknoteJson);
-    } catch (error) {
+    } catch {
       blocknote = [];
       // TODO: Remove this once we have removed the old rich text
       // eslint-disable-next-line no-console
@@ -50,12 +49,22 @@ export class ActivityQueryResultGetterHandler
         }
 
         const imageProps = block.props;
-        const imageUrl = new URL(imageProps.url);
+        const url = new URL(imageProps.url);
 
-        imageUrl.searchParams.delete('token');
+        const pathname = url.pathname;
+
+        const isLinkExternal = !pathname.startsWith('/files/attachment/');
+
+        if (isLinkExternal) {
+          return block;
+        }
+
+        const fileName = pathname.match(
+          /files\/attachment\/(?:.+)\/(.+)$/,
+        )?.[1];
 
         const signedPath = this.fileService.signFileUrl({
-          url: imageProps.url.toString(),
+          url: `attachment/${fileName}`,
           workspaceId,
         });
 
@@ -63,7 +72,7 @@ export class ActivityQueryResultGetterHandler
           ...block,
           props: {
             ...imageProps,
-            url: signedPath,
+            url: `${process.env.SERVER_URL}/files/${signedPath}`,
           },
         };
       }),

@@ -1,19 +1,20 @@
-import { useApolloClient } from '@apollo/client';
-
 import { triggerUpdateRecordOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffect';
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useGetRecordFromCache } from '@/object-record/cache/hooks/useGetRecordFromCache';
 import { getObjectTypename } from '@/object-record/cache/utils/getObjectTypename';
 import { getRecordNodeFromRecord } from '@/object-record/cache/utils/getRecordNodeFromRecord';
 import { updateRecordFromCache } from '@/object-record/cache/utils/updateRecordFromCache';
-import { computeDepthOneRecordGqlFieldsFromRecord } from '@/object-record/graphql/utils/computeDepthOneRecordGqlFieldsFromRecord';
-import { generateDepthOneRecordGqlFields } from '@/object-record/graphql/utils/generateDepthOneRecordGqlFields';
+import { useGenerateDepthRecordGqlFieldsFromObject } from '@/object-record/graphql/record-gql-fields/hooks/useGenerateDepthRecordGqlFieldsFromObject';
+import { generateDepthRecordGqlFieldsFromRecord } from '@/object-record/graphql/record-gql-fields/utils/generateDepthRecordGqlFieldsFromRecord';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
 import { useRefetchAggregateQueries } from '@/object-record/hooks/useRefetchAggregateQueries';
+import { useRegisterObjectOperation } from '@/object-record/hooks/useRegisterObjectOperation';
 import { useUpdateOneRecordMutation } from '@/object-record/hooks/useUpdateOneRecordMutation';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useUpsertRecordsInStore';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { computeOptimisticRecordFromInput } from '@/object-record/utils/computeOptimisticRecordFromInput';
 import { getUpdateOneRecordMutationResponseField } from '@/object-record/utils/getUpdateOneRecordMutationResponseField';
 import { sanitizeRecordInput } from '@/object-record/utils/sanitizeRecordInput';
@@ -37,14 +38,21 @@ export const useUpdateOneRecord = <
   objectNameSingular,
   recordGqlFields,
 }: useUpdateOneRecordProps) => {
-  const apolloClient = useApolloClient();
+  const { registerObjectOperation } = useRegisterObjectOperation();
+  const { upsertRecordsInStore } = useUpsertRecordsInStore();
+  const apolloCoreClient = useApolloCoreClient();
 
   const { objectMetadataItem } = useObjectMetadataItem({
     objectNameSingular,
   });
 
-  const computedRecordGqlFields =
-    recordGqlFields ?? generateDepthOneRecordGqlFields({ objectMetadataItem });
+  const { recordGqlFields: depthOneRecordGqlFields } =
+    useGenerateDepthRecordGqlFieldsFromObject({
+      objectNameSingular,
+      depth: 1,
+    });
+
+  const computedRecordGqlFields = recordGqlFields ?? depthOneRecordGqlFields;
 
   const getRecordFromCache = useGetRecordFromCache({
     objectNameSingular,
@@ -75,7 +83,7 @@ export const useUpdateOneRecord = <
         objectMetadataItem,
         currentWorkspaceMember: currentWorkspaceMember,
         recordInput: updateOneRecordInput,
-        cache: apolloClient.cache,
+        cache: apolloCoreClient.cache,
         objectMetadataItems,
         objectPermissionsByObjectMetadataId,
       });
@@ -110,26 +118,30 @@ export const useUpdateOneRecord = <
       isDefined(cachedRecordWithConnection);
 
     if (shouldHandleOptimisticCache) {
-      const recordGqlFields = computeDepthOneRecordGqlFieldsFromRecord({
+      const recordGqlFields = generateDepthRecordGqlFieldsFromRecord({
         objectMetadataItem,
+        objectMetadataItems,
         record: optimisticRecordInput,
+        depth: 1,
       });
 
       updateRecordFromCache({
         objectMetadataItems,
         objectMetadataItem,
-        cache: apolloClient.cache,
+        cache: apolloCoreClient.cache,
         record: computedOptimisticRecord,
         recordGqlFields,
         objectPermissionsByObjectMetadataId,
       });
 
       triggerUpdateRecordOptimisticEffect({
-        cache: apolloClient.cache,
+        cache: apolloCoreClient.cache,
         objectMetadataItem,
         currentRecord: cachedRecordWithConnection,
         updatedRecord: optimisticRecordWithConnection,
         objectMetadataItems,
+        objectPermissionsByObjectMetadataId,
+        upsertRecordsInStore,
       });
     }
 
@@ -142,7 +154,7 @@ export const useUpdateOneRecord = <
         recordInput: updateOneRecordInput,
       }),
     };
-    const updatedRecord = await apolloClient
+    const updatedRecord = await apolloCoreClient
       .mutate({
         mutation: updateOneRecordMutation,
         variables: {
@@ -159,6 +171,8 @@ export const useUpdateOneRecord = <
             currentRecord: computedOptimisticRecord,
             updatedRecord: record,
             objectMetadataItems,
+            objectPermissionsByObjectMetadataId,
+            upsertRecordsInStore,
           });
         },
       })
@@ -172,9 +186,11 @@ export const useUpdateOneRecord = <
         ).filter((diffKey) => !cachedRecordKeys.has(diffKey));
 
         const recordGqlFields = {
-          ...computeDepthOneRecordGqlFieldsFromRecord({
+          ...generateDepthRecordGqlFieldsFromRecord({
             objectMetadataItem,
+            objectMetadataItems,
             record: cachedRecord,
+            depth: 1,
           }),
           ...buildRecordFromKeysWithSameValue(
             recordKeysAddedByOptimisticCache,
@@ -185,7 +201,7 @@ export const useUpdateOneRecord = <
         updateRecordFromCache({
           objectMetadataItems,
           objectMetadataItem,
-          cache: apolloClient.cache,
+          cache: apolloCoreClient.cache,
           record: {
             ...cachedRecord,
             ...buildRecordFromKeysWithSameValue(
@@ -198,18 +214,28 @@ export const useUpdateOneRecord = <
         });
 
         triggerUpdateRecordOptimisticEffect({
-          cache: apolloClient.cache,
+          cache: apolloCoreClient.cache,
           objectMetadataItem,
           currentRecord: optimisticRecordWithConnection,
           updatedRecord: cachedRecordWithConnection,
           objectMetadataItems,
+          objectPermissionsByObjectMetadataId,
+          upsertRecordsInStore,
         });
 
         throw error;
       });
 
     await refetchAggregateQueries();
-    return updatedRecord?.data?.[mutationResponseField] ?? null;
+
+    const udpatedRecord = updatedRecord?.data?.[mutationResponseField] ?? null;
+
+    registerObjectOperation(objectNameSingular, {
+      type: 'update-one',
+      result: { updatedRecord, updateInput: updateOneRecordInput },
+    });
+
+    return udpatedRecord;
   };
 
   return {

@@ -7,10 +7,12 @@ import { RecordBoardColumnDropdownMenu } from '@/object-record/record-board/reco
 import { RecordBoardColumnHeaderAggregateDropdown } from '@/object-record/record-board/record-board-column/components/RecordBoardColumnHeaderAggregateDropdown';
 import { RecordBoardColumnContext } from '@/object-record/record-board/record-board-column/contexts/RecordBoardColumnContext';
 import { useAggregateRecordsForRecordBoardColumn } from '@/object-record/record-board/record-board-column/hooks/useAggregateRecordsForRecordBoardColumn';
-import { RecordBoardColumnHotkeyScope } from '@/object-record/record-board/types/BoardColumnHotkeyScope';
+import { hasAnySoftDeleteFilterOnViewComponentSelector } from '@/object-record/record-filter/states/hasAnySoftDeleteFilterOnView';
 import { RecordGroupDefinitionType } from '@/object-record/record-group/types/RecordGroupDefinition';
 import { useCreateNewIndexRecord } from '@/object-record/record-table/hooks/useCreateNewIndexRecord';
-import { usePreviousHotkeyScope } from '@/ui/utilities/hotkey/hooks/usePreviousHotkeyScope';
+import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
+import { useToggleDropdown } from '@/ui/layout/dropdown/hooks/useToggleDropdown';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { Tag } from 'twenty-ui/components';
 import { IconDotsVertical, IconPlus } from 'twenty-ui/display';
 import { LightIconButton } from 'twenty-ui/input';
@@ -66,31 +68,10 @@ const StyledTag = styled(Tag)`
 
 export const RecordBoardColumnHeader = () => {
   const { columnDefinition } = useContext(RecordBoardColumnContext);
-  const [isBoardColumnMenuOpen, setIsBoardColumnMenuOpen] = useState(false);
   const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
   const { objectMetadataItem, selectFieldMetadataItem } =
     useContext(RecordBoardContext);
-
-  const {
-    setHotkeyScopeAndMemorizePreviousScope,
-    goBackToPreviousHotkeyScope,
-  } = usePreviousHotkeyScope();
-
-  const handleBoardColumnMenuOpen = () => {
-    setIsBoardColumnMenuOpen(true);
-    setHotkeyScopeAndMemorizePreviousScope({
-      scope: RecordBoardColumnHotkeyScope.BoardColumn,
-      customScopes: {
-        goto: false,
-      },
-    });
-  };
-
-  const handleBoardColumnMenuClose = () => {
-    goBackToPreviousHotkeyScope();
-    setIsBoardColumnMenuOpen(false);
-  };
 
   const { aggregateValue, aggregateLabel } =
     useAggregateRecordsForRecordBoardColumn();
@@ -101,9 +82,17 @@ export const RecordBoardColumnHeader = () => {
 
   const hasObjectUpdatePermissions = objectPermissions.canUpdateObjectRecords;
 
+  const hasAnySoftDeleteFilterOnView = useRecoilComponentValue(
+    hasAnySoftDeleteFilterOnViewComponentSelector,
+  );
+
   const { createNewIndexRecord } = useCreateNewIndexRecord({
     objectMetadataItem: objectMetadataItem,
   });
+
+  const { toggleDropdown } = useToggleDropdown();
+
+  const dropdownId = `record-board-column-dropdown-${columnDefinition.id}`;
 
   return (
     <StyledColumn>
@@ -113,25 +102,36 @@ export const RecordBoardColumnHeader = () => {
       >
         <StyledHeaderContainer>
           <StyledLeftContainer>
-            <StyledTag
-              onClick={handleBoardColumnMenuOpen}
-              variant={
-                columnDefinition.type === RecordGroupDefinitionType.Value
-                  ? 'solid'
-                  : 'outline'
+            <Dropdown
+              dropdownId={dropdownId}
+              dropdownPlacement="bottom-start"
+              dropdownOffset={{
+                x: 0,
+                y: 10,
+              }}
+              clickableComponent={
+                <StyledTag
+                  variant={
+                    columnDefinition.type === RecordGroupDefinitionType.Value
+                      ? 'solid'
+                      : 'outline'
+                  }
+                  color={
+                    columnDefinition.type === RecordGroupDefinitionType.Value
+                      ? columnDefinition.color
+                      : 'transparent'
+                  }
+                  text={columnDefinition.title}
+                  weight={
+                    columnDefinition.type === RecordGroupDefinitionType.Value
+                      ? 'regular'
+                      : 'medium'
+                  }
+                />
               }
-              color={
-                columnDefinition.type === RecordGroupDefinitionType.Value
-                  ? columnDefinition.color
-                  : 'transparent'
-              }
-              text={columnDefinition.title}
-              weight={
-                columnDefinition.type === RecordGroupDefinitionType.Value
-                  ? 'regular'
-                  : 'medium'
-              }
+              dropdownComponents={<RecordBoardColumnDropdownMenu />}
             />
+
             <RecordBoardColumnHeaderAggregateDropdown
               aggregateValue={aggregateValue}
               dropdownId={`record-board-column-aggregate-dropdown-${columnDefinition.id}`}
@@ -145,31 +145,31 @@ export const RecordBoardColumnHeader = () => {
                 <LightIconButton
                   accent="tertiary"
                   Icon={IconDotsVertical}
-                  onClick={handleBoardColumnMenuOpen}
+                  onClick={() => {
+                    toggleDropdown({
+                      dropdownComponentInstanceIdFromProps: dropdownId,
+                    });
+                  }}
                 />
-                {hasObjectUpdatePermissions && (
-                  <LightIconButton
-                    accent="tertiary"
-                    Icon={IconPlus}
-                    onClick={() => {
-                      createNewIndexRecord({
-                        position: 'first',
-                        [selectFieldMetadataItem.name]: columnDefinition.value,
-                      });
-                    }}
-                  />
-                )}
+                {hasObjectUpdatePermissions &&
+                  !hasAnySoftDeleteFilterOnView && (
+                    <LightIconButton
+                      accent="tertiary"
+                      Icon={IconPlus}
+                      onClick={() => {
+                        createNewIndexRecord({
+                          position: 'first',
+                          [selectFieldMetadataItem.name]:
+                            columnDefinition.value,
+                        });
+                      }}
+                    />
+                  )}
               </StyledHeaderActions>
             )}
           </StyledRightContainer>
         </StyledHeaderContainer>
       </StyledHeader>
-      {isBoardColumnMenuOpen && (
-        <RecordBoardColumnDropdownMenu
-          onClose={handleBoardColumnMenuClose}
-          stageId={columnDefinition.id}
-        />
-      )}
     </StyledColumn>
   );
 };

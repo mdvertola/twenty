@@ -1,21 +1,20 @@
 import { Key } from 'ts-key-enum';
 
 import { IconPicker } from '@/ui/input/components/IconPicker';
-import { TextInputV2 } from '@/ui/input/components/TextInputV2';
+import { TextInput } from '@/ui/input/components/TextInput';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuHeader } from '@/ui/layout/dropdown/components/DropdownMenuHeader/DropdownMenuHeader';
 import { DropdownMenuHeaderLeftComponent } from '@/ui/layout/dropdown/components/DropdownMenuHeader/internal/DropdownMenuHeaderLeftComponent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { DropdownMenuSeparator } from '@/ui/layout/dropdown/components/DropdownMenuSeparator';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
-import { useSetHotkeyScope } from '@/ui/utilities/hotkey/hooks/useSetHotkeyScope';
-import { useRecoilComponentStateV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentStateV2';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
-import { useSetRecoilComponentStateV2 } from '@/ui/utilities/state/component-state/hooks/useSetRecoilComponentStateV2';
-import { ViewsHotkeyScope } from '@/views/types/ViewsHotkeyScope';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
+import { useRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentState';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
+import { useSetRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useSetRecoilComponentState';
 import { ViewPickerEditButton } from '@/views/view-picker/components/ViewPickerEditButton';
 import { ViewPickerIconAndNameContainer } from '@/views/view-picker/components/ViewPickerIconAndNameContainer';
 import { ViewPickerSaveButtonContainer } from '@/views/view-picker/components/ViewPickerSaveButtonContainer';
+import { VIEW_PICKER_DROPDOWN_ID } from '@/views/view-picker/constants/ViewPickerDropdownId';
 import { useUpdateViewFromCurrentState } from '@/views/view-picker/hooks/useUpdateViewFromCurrentState';
 import { useViewPickerMode } from '@/views/view-picker/hooks/useViewPickerMode';
 import { viewPickerInputNameComponentState } from '@/views/view-picker/states/viewPickerInputNameComponentState';
@@ -27,33 +26,33 @@ import { IconChevronLeft } from 'twenty-ui/display';
 export const ViewPickerContentEditMode = () => {
   const { setViewPickerMode } = useViewPickerMode();
 
-  const [viewPickerInputName, setViewPickerInputName] =
-    useRecoilComponentStateV2(viewPickerInputNameComponentState);
+  const [viewPickerInputName, setViewPickerInputName] = useRecoilComponentState(
+    viewPickerInputNameComponentState,
+  );
   const [viewPickerSelectedIcon, setViewPickerSelectedIcon] =
-    useRecoilComponentStateV2(viewPickerSelectedIconComponentState);
+    useRecoilComponentState(viewPickerSelectedIconComponentState);
 
-  const viewPickerIsPersisting = useRecoilComponentValueV2(
+  const viewPickerIsPersisting = useRecoilComponentValue(
     viewPickerIsPersistingComponentState,
   );
-  const setViewPickerIsDirty = useSetRecoilComponentStateV2(
+  const setViewPickerIsDirty = useSetRecoilComponentState(
     viewPickerIsDirtyComponentState,
   );
 
-  const setHotkeyScope = useSetHotkeyScope();
-
   const { updateViewFromCurrentState } = useUpdateViewFromCurrentState();
 
-  useScopedHotkeys(
-    Key.Enter,
-    async () => {
+  useHotkeysOnFocusedElement({
+    keys: [Key.Enter],
+    callback: async () => {
       if (viewPickerIsPersisting) {
         return;
       }
 
       await updateViewFromCurrentState();
     },
-    ViewsHotkeyScope.ListDropdown,
-  );
+    focusId: VIEW_PICKER_DROPDOWN_ID,
+    dependencies: [viewPickerIsPersisting, updateViewFromCurrentState],
+  });
 
   const onIconChange = ({ iconKey }: { iconKey: string }) => {
     setViewPickerIsDirty(true);
@@ -83,9 +82,8 @@ export const ViewPickerContentEditMode = () => {
           <IconPicker
             onChange={onIconChange}
             selectedIconKey={viewPickerSelectedIcon}
-            onClose={() => setHotkeyScope(ViewsHotkeyScope.ListDropdown)}
           />
-          <TextInputV2
+          <TextInput
             value={viewPickerInputName}
             onChange={(value) => {
               setViewPickerIsDirty(true);

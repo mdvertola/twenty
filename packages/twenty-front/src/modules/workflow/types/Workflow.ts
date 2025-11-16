@@ -1,54 +1,32 @@
 import {
-  workflowActionSchema,
-  workflowCodeActionSchema,
-  workflowCodeActionSettingsSchema,
-  workflowCreateRecordActionSchema,
-  workflowCreateRecordActionSettingsSchema,
-  workflowCronTriggerSchema,
-  workflowDatabaseEventTriggerSchema,
-  workflowDeleteRecordActionSchema,
-  workflowDeleteRecordActionSettingsSchema,
-  workflowExecutorOutputSchema,
-  workflowFindRecordsActionSchema,
-  workflowFindRecordsActionSettingsSchema,
-  workflowFormActionSchema,
-  workflowFormActionSettingsSchema,
-  workflowManualTriggerSchema,
-  workflowRunContextSchema,
-  workflowRunOutputSchema,
-  workflowRunOutputStepsOutputSchema,
-  workflowRunSchema,
-  workflowRunStatusSchema,
-  workflowSendEmailActionSchema,
-  workflowSendEmailActionSettingsSchema,
-  workflowTriggerSchema,
-  workflowUpdateRecordActionSchema,
-  workflowUpdateRecordActionSettingsSchema,
-  workflowWebhookTriggerSchema,
-} from '@/workflow/validation-schemas/workflowSchema';
-import { z } from 'zod';
-
-export type WorkflowCodeActionSettings = z.infer<
-  typeof workflowCodeActionSettingsSchema
->;
-export type WorkflowSendEmailActionSettings = z.infer<
-  typeof workflowSendEmailActionSettingsSchema
->;
-export type WorkflowCreateRecordActionSettings = z.infer<
-  typeof workflowCreateRecordActionSettingsSchema
->;
-export type WorkflowUpdateRecordActionSettings = z.infer<
-  typeof workflowUpdateRecordActionSettingsSchema
->;
-export type WorkflowDeleteRecordActionSettings = z.infer<
-  typeof workflowDeleteRecordActionSettingsSchema
->;
-export type WorkflowFindRecordsActionSettings = z.infer<
-  typeof workflowFindRecordsActionSettingsSchema
->;
-export type WorkflowFormActionSettings = z.infer<
-  typeof workflowFormActionSettingsSchema
->;
+  type BulkRecordsAvailability,
+  type GlobalAvailability,
+  type SingleRecordAvailability,
+  type workflowAiAgentActionSchema,
+  type workflowCodeActionSchema,
+  type workflowCreateRecordActionSchema,
+  type workflowCronTriggerSchema,
+  type workflowDatabaseEventTriggerSchema,
+  type workflowDeleteRecordActionSchema,
+  type workflowEmptyActionSchema,
+  type workflowFilterActionSchema,
+  type workflowFindRecordsActionSchema,
+  type workflowFormActionSchema,
+  type workflowHttpRequestActionSchema,
+  type workflowIteratorActionSchema,
+  type workflowManualTriggerSchema,
+  type workflowRunSchema,
+  type workflowRunStateSchema,
+  type workflowRunStatusSchema,
+  type workflowRunStepStatusSchema,
+  type workflowSendEmailActionSchema,
+  type workflowTriggerSchema,
+  type workflowUpdateRecordActionSchema,
+  type workflowUpsertRecordActionSchema,
+  type workflowWebhookTriggerSchema,
+  type workflowDelayActionSchema,
+} from 'twenty-shared/workflow';
+import { type z } from 'zod';
 
 export type WorkflowCodeAction = z.infer<typeof workflowCodeActionSchema>;
 export type WorkflowSendEmailAction = z.infer<
@@ -63,15 +41,42 @@ export type WorkflowUpdateRecordAction = z.infer<
 export type WorkflowDeleteRecordAction = z.infer<
   typeof workflowDeleteRecordActionSchema
 >;
+export type WorkflowUpsertRecordAction = z.infer<
+  typeof workflowUpsertRecordActionSchema
+>;
 export type WorkflowFindRecordsAction = z.infer<
   typeof workflowFindRecordsActionSchema
 >;
+export type WorkflowDelayAction = z.infer<typeof workflowDelayActionSchema>;
+export type WorkflowFilterAction = z.infer<typeof workflowFilterActionSchema>;
 export type WorkflowFormAction = z.infer<typeof workflowFormActionSchema>;
+export type WorkflowHttpRequestAction = z.infer<
+  typeof workflowHttpRequestActionSchema
+>;
+export type WorkflowIteratorAction = z.infer<
+  typeof workflowIteratorActionSchema
+>;
+export type WorkflowAiAgentAction = z.infer<typeof workflowAiAgentActionSchema>;
+export type WorkflowEmptyAction = z.infer<typeof workflowEmptyActionSchema>;
 
-export type WorkflowAction = z.infer<typeof workflowActionSchema>;
+export type WorkflowAction =
+  | WorkflowCodeAction
+  | WorkflowSendEmailAction
+  | WorkflowCreateRecordAction
+  | WorkflowUpdateRecordAction
+  | WorkflowDeleteRecordAction
+  | WorkflowUpsertRecordAction
+  | WorkflowFindRecordsAction
+  | WorkflowFilterAction
+  | WorkflowFormAction
+  | WorkflowHttpRequestAction
+  | WorkflowAiAgentAction
+  | WorkflowIteratorAction
+  | WorkflowDelayAction
+  | WorkflowEmptyAction;
+
 export type WorkflowActionType = WorkflowAction['type'];
 export type WorkflowStep = WorkflowAction;
-export type WorkflowStepType = WorkflowStep['type'];
 
 export type WorkflowDatabaseEventTrigger = z.infer<
   typeof workflowDatabaseEventTriggerSchema
@@ -86,6 +91,11 @@ export type WorkflowManualTriggerSettings = WorkflowManualTrigger['settings'];
 export type WorkflowManualTriggerAvailability =
   | 'EVERYWHERE'
   | 'WHEN_RECORD_SELECTED';
+
+export type WorkflowManualTriggerAvailabilityV2 =
+  | GlobalAvailability
+  | SingleRecordAvailability
+  | BulkRecordsAvailability;
 
 export type WorkflowTrigger = z.infer<typeof workflowTriggerSchema>;
 export type WorkflowTriggerType = WorkflowTrigger['type'];
@@ -110,27 +120,27 @@ export type WorkflowVersion = {
   __typename: 'WorkflowVersion';
 };
 
-export type WorkflowRunOutput = z.infer<typeof workflowRunOutputSchema>;
-export type WorkflowExecutorOutput = z.infer<
-  typeof workflowExecutorOutputSchema
->;
-export type WorkflowRunOutputStepsOutput = z.infer<
-  typeof workflowRunOutputStepsOutputSchema
->;
-
-export type WorkflowRunContext = z.infer<typeof workflowRunContextSchema>;
-
-export type WorkflowRunFlow = WorkflowRunOutput['flow'];
+export type ManualTriggerWorkflowVersion = WorkflowVersion & {
+  trigger: WorkflowManualTrigger | null;
+};
 
 export type WorkflowRunStatus = z.infer<typeof workflowRunStatusSchema>;
 
 export type WorkflowRun = z.infer<typeof workflowRunSchema>;
 
+export type WorkflowRunState = z.infer<typeof workflowRunStateSchema>;
+
+export type WorkflowRunStepStatus = z.infer<typeof workflowRunStepStatusSchema>;
+
+export type WorkflowRunFlow = WorkflowRunState['flow'];
+
 export type Workflow = {
   __typename: 'Workflow';
   id: string;
   name: string;
-  versions: Array<WorkflowVersion>;
+  versions: Array<
+    Pick<WorkflowVersion, 'id' | 'status' | 'name' | 'createdAt'>
+  >;
   lastPublishedVersionId: string;
   statuses: Array<WorkflowStatus> | null;
 };

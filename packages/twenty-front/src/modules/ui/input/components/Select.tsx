@@ -1,25 +1,27 @@
 import styled from '@emotion/styled';
-import { MouseEvent, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useMemo, useRef, useState } from 'react';
 
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { DropdownMenuSearchInput } from '@/ui/layout/dropdown/components/DropdownMenuSearchInput';
 import { DropdownMenuSeparator } from '@/ui/layout/dropdown/components/DropdownMenuSeparator';
-import { useDropdown } from '@/ui/layout/dropdown/hooks/useDropdown';
 
+import { type SelectValue } from '@/ui/input/components/internal/select/types';
 import { SelectControl } from '@/ui/input/components/SelectControl';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { GenericDropdownContentWidth } from '@/ui/layout/dropdown/constants/GenericDropdownContentWidth';
-import { DropdownOffset } from '@/ui/layout/dropdown/types/DropdownOffset';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
+import { type DropdownOffset } from '@/ui/layout/dropdown/types/DropdownOffset';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 import { SelectableListItem } from '@/ui/layout/selectable-list/components/SelectableListItem';
+import { useSelectableList } from '@/ui/layout/selectable-list/hooks/useSelectableList';
 import { selectedItemIdComponentState } from '@/ui/layout/selectable-list/states/selectedItemIdComponentState';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
+import { isNonEmptyArray, isNonEmptyString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
-import { IconComponent } from 'twenty-ui/display';
-import { SelectOption } from 'twenty-ui/input';
+import { type IconComponent } from 'twenty-ui/display';
+import { type SelectOption } from 'twenty-ui/input';
 import { MenuItem, MenuItemSelect } from 'twenty-ui/navigation';
-import { SelectHotkeyScope } from '../types/SelectHotkeyScope';
 
 export type SelectSizeVariant = 'small' | 'default';
 
@@ -28,8 +30,6 @@ type CallToActionButton = {
   onClick: (event: MouseEvent<HTMLDivElement>) => void;
   Icon?: IconComponent;
 };
-
-export type SelectValue = string | number | boolean | null;
 
 export type SelectProps<Value extends SelectValue> = {
   className?: string;
@@ -41,6 +41,7 @@ export type SelectProps<Value extends SelectValue> = {
   emptyOption?: SelectOption<Value>;
   fullWidth?: boolean;
   label?: string;
+  description?: string;
   onChange?: (value: Value) => void;
   onBlur?: () => void;
   options: SelectOption<Value>[];
@@ -64,6 +65,11 @@ const StyledLabel = styled.span`
   margin-bottom: ${({ theme }) => theme.spacing(1)};
 `;
 
+const StyledDescription = styled.span`
+  color: ${({ theme }) => theme.font.color.light};
+  font-size: ${({ theme }) => theme.font.size.sm};
+`;
+
 export const Select = <Value extends SelectValue>({
   className,
   disabled: disabledFromProps,
@@ -74,6 +80,7 @@ export const Select = <Value extends SelectValue>({
   emptyOption,
   fullWidth,
   label,
+  description,
   onChange,
   onBlur,
   options,
@@ -88,10 +95,26 @@ export const Select = <Value extends SelectValue>({
 
   const [searchInputValue, setSearchInputValue] = useState('');
 
-  const selectedOption =
-    options.find(({ value: key }) => key === value) ||
-    emptyOption ||
-    options[0];
+  const selectedOption = useMemo(() => {
+    const fromMatchingOption = options.find(
+      ({ value: optionValue }) => optionValue === value,
+    );
+
+    if (isDefined(fromMatchingOption)) {
+      return fromMatchingOption;
+    }
+
+    if (isDefined(emptyOption)) {
+      return emptyOption;
+    }
+
+    if (options.length > 0) {
+      return options[0];
+    }
+
+    return null;
+  }, [emptyOption, options, value]);
+
   const filteredOptions = useMemo(
     () =>
       searchInputValue
@@ -108,7 +131,7 @@ export const Select = <Value extends SelectValue>({
       !isDefined(callToActionButton) &&
       (!isDefined(emptyOption) || selectedOption !== emptyOption));
 
-  const { closeDropdown } = useDropdown(dropdownId);
+  const { closeDropdown } = useCloseDropdown();
 
   const dropDownMenuWidth =
     dropdownWidthAuto && selectContainerRef.current?.clientWidth
@@ -117,10 +140,22 @@ export const Select = <Value extends SelectValue>({
 
   const selectableItemIdArray = filteredOptions.map((option) => option.label);
 
-  const selectedItemId = useRecoilComponentValueV2(
+  const selectedItemId = useRecoilComponentValue(
     selectedItemIdComponentState,
     dropdownId,
   );
+
+  const { setSelectedItemId } = useSelectableList(dropdownId);
+
+  const handleDropdownOpen = () => {
+    if (isDefined(selectedOption) && !isNonEmptyString(searchInputValue)) {
+      setSelectedItemId(selectedOption.label);
+    }
+  };
+
+  if (!isDefined(selectedOption)) {
+    return <></>;
+  }
 
   return (
     <StyledContainer
@@ -130,7 +165,7 @@ export const Select = <Value extends SelectValue>({
       onBlur={onBlur}
       ref={selectContainerRef}
     >
-      {!!label && <StyledLabel>{label}</StyledLabel>}
+      {isNonEmptyString(label) && <StyledLabel>{label}</StyledLabel>}
       {isDisabled ? (
         <SelectControl
           selectedOption={selectedOption}
@@ -143,6 +178,7 @@ export const Select = <Value extends SelectValue>({
           dropdownId={dropdownId}
           dropdownPlacement="bottom-start"
           dropdownOffset={dropdownOffset}
+          onOpen={handleDropdownOpen}
           clickableComponent={
             <SelectControl
               selectedOption={selectedOption}
@@ -153,21 +189,21 @@ export const Select = <Value extends SelectValue>({
           }
           dropdownComponents={
             <DropdownContent widthInPixels={dropDownMenuWidth}>
-              {!!withSearchInput && (
+              {withSearchInput === true && (
                 <DropdownMenuSearchInput
                   autoFocus
                   value={searchInputValue}
                   onChange={(event) => setSearchInputValue(event.target.value)}
                 />
               )}
-              {!!withSearchInput && !!filteredOptions.length && (
+              {withSearchInput === true && isNonEmptyArray(filteredOptions) && (
                 <DropdownMenuSeparator />
               )}
-              {!!filteredOptions.length && (
+              {isNonEmptyArray(filteredOptions) && (
                 <DropdownMenuItemsContainer hasMaxHeight>
                   <SelectableList
-                    hotkeyScope={SelectHotkeyScope.Select}
                     selectableListInstanceId={dropdownId}
+                    focusId={dropdownId}
                     selectableItemIdArray={selectableItemIdArray}
                   >
                     {filteredOptions.map((option) => (
@@ -177,7 +213,7 @@ export const Select = <Value extends SelectValue>({
                         onEnter={() => {
                           onChange?.(option.value);
                           onBlur?.();
-                          closeDropdown();
+                          closeDropdown(dropdownId);
                         }}
                       >
                         <MenuItemSelect
@@ -189,7 +225,7 @@ export const Select = <Value extends SelectValue>({
                           onClick={() => {
                             onChange?.(option.value);
                             onBlur?.();
-                            closeDropdown();
+                            closeDropdown(dropdownId);
                           }}
                         />
                       </SelectableListItem>
@@ -197,10 +233,9 @@ export const Select = <Value extends SelectValue>({
                   </SelectableList>
                 </DropdownMenuItemsContainer>
               )}
-              {!!callToActionButton && !!filteredOptions.length && (
-                <DropdownMenuSeparator />
-              )}
-              {!!callToActionButton && (
+              {isDefined(callToActionButton) &&
+                isNonEmptyArray(filteredOptions) && <DropdownMenuSeparator />}
+              {isDefined(callToActionButton) && (
                 <DropdownMenuItemsContainer hasMaxHeight scrollable={false}>
                   <MenuItem
                     onClick={callToActionButton.onClick}
@@ -211,8 +246,10 @@ export const Select = <Value extends SelectValue>({
               )}
             </DropdownContent>
           }
-          dropdownHotkeyScope={{ scope: SelectHotkeyScope.Select }}
         />
+      )}
+      {isNonEmptyString(description) && (
+        <StyledDescription>{description}</StyledDescription>
       )}
     </StyledContainer>
   );

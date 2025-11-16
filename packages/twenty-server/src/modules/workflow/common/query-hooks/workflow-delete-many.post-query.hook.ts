@@ -1,10 +1,13 @@
-import { WorkspacePostQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
+import { assertIsDefinedOrThrow } from 'twenty-shared/utils';
+
+import { type WorkspacePostQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
 
 import { WorkspaceQueryHook } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/decorators/workspace-query-hook.decorator';
 import { WorkspaceQueryHookType } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/types/workspace-query-hook.type';
-import { AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
-import { WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
+import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
+import { type WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
 import { WorkflowCommonWorkspaceService } from 'src/modules/workflow/common/workspace-services/workflow-common.workspace-service';
+import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
 
 @WorkspaceQueryHook({
   key: `workflow.deleteMany`,
@@ -22,9 +25,13 @@ export class WorkflowDeleteManyPostQueryHook
     _objectName: string,
     payload: WorkflowWorkspaceEntity[],
   ): Promise<void> {
-    this.workflowCommonWorkspaceService.handleWorkflowSubEntities({
+    const workspace = authContext.workspace;
+
+    assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
+    await this.workflowCommonWorkspaceService.handleWorkflowSubEntities({
       workflowIds: payload.map((workflow) => workflow.id),
-      workspaceId: authContext.workspace.id,
+      workspaceId: workspace.id,
       operation: 'delete',
     });
   }

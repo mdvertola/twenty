@@ -1,6 +1,6 @@
 import { SettingsRolePermissionsObjectsTableHeader } from '@/settings/roles/role-permissions/objects-permissions/components/SettingsRolePermissionsObjectsTableHeader';
 import { SettingsRolePermissionsObjectsTableRow } from '@/settings/roles/role-permissions/objects-permissions/components/SettingsRolePermissionsObjectsTableRow';
-import { SettingsRolePermissionsObjectPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
+import { type SettingsRolePermissionsObjectPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
 import { settingsDraftRoleFamilyState } from '@/settings/roles/states/settingsDraftRoleFamilyState';
 import styled from '@emotion/styled';
 import { t } from '@lingui/core/macro';
@@ -36,6 +36,12 @@ export const SettingsRolePermissionsObjectsSection = ({
     {
       key: 'canReadObjectRecords',
       label: t`See Records on All Objects`,
+      grantedBy:
+        objectPermissions?.filter(
+          (permission) =>
+            permission.canReadObjectRecords === true &&
+            settingsDraftRole.canReadAllObjectRecords === false,
+        )?.length ?? 0,
       revokedBy:
         objectPermissions?.filter(
           (permission) =>
@@ -60,6 +66,12 @@ export const SettingsRolePermissionsObjectsSection = ({
     {
       key: 'canUpdateObjectRecords',
       label: t`Edit Records on All Objects`,
+      grantedBy:
+        objectPermissions?.filter(
+          (permission) =>
+            permission.canUpdateObjectRecords === true &&
+            settingsDraftRole.canUpdateAllObjectRecords === false,
+        )?.length ?? 0,
       revokedBy:
         objectPermissions?.filter(
           (permission) =>
@@ -82,6 +94,12 @@ export const SettingsRolePermissionsObjectsSection = ({
     {
       key: 'canSoftDeleteObjectRecords',
       label: t`Delete Records on All Objects`,
+      grantedBy:
+        objectPermissions?.filter(
+          (permission) =>
+            permission.canSoftDeleteObjectRecords === true &&
+            settingsDraftRole.canSoftDeleteAllObjectRecords === false,
+        )?.length ?? 0,
       revokedBy:
         objectPermissions?.filter(
           (permission) =>
@@ -104,6 +122,12 @@ export const SettingsRolePermissionsObjectsSection = ({
     {
       key: 'canDestroyObjectRecords',
       label: t`Destroy Records on All Objects`,
+      grantedBy:
+        objectPermissions?.filter(
+          (permission) =>
+            permission.canDestroyObjectRecords === true &&
+            settingsDraftRole.canDestroyAllObjectRecords === false,
+        )?.length ?? 0,
       revokedBy:
         objectPermissions?.filter(
           (permission) =>
@@ -129,7 +153,7 @@ export const SettingsRolePermissionsObjectsSection = ({
     <Section>
       <H2Title
         title={t`Objects`}
-        description={t`Actions you can perform on all objects`}
+        description={t`Objects and fields permissions settings`}
       />
       <StyledTable>
         <SettingsRolePermissionsObjectsTableHeader

@@ -1,6 +1,6 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, type NestMiddleware } from '@nestjs/common';
 
-import { NextFunction, Request, Response } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 
 import { MiddlewareService } from 'src/engine/middlewares/middleware.service';
 
@@ -11,12 +11,8 @@ export class GraphQLHydrateRequestFromTokenMiddleware
   constructor(private readonly middlewareService: MiddlewareService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
-    if (this.middlewareService.checkUnauthenticatedAccess(req)) {
-      return next();
-    }
-
     try {
-      await this.middlewareService.authenticateGraphqlRequest(req);
+      await this.middlewareService.hydrateGraphqlRequest(req);
     } catch (error) {
       this.middlewareService.writeGraphqlResponseOnExceptionCaught(res, error);
 

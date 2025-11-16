@@ -3,45 +3,51 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import crypto from 'crypto';
 
+import { msg } from '@lingui/core/macro';
 import { render } from '@react-email/render';
 import { SendApprovedAccessDomainValidation } from 'twenty-emails';
-import { APP_LOCALES } from 'twenty-shared/translations';
+import { SettingsPath } from 'twenty-shared/types';
+import { getSettingsPath } from 'twenty-shared/utils';
 import { Repository } from 'typeorm';
 
-import { ApprovedAccessDomain as ApprovedAccessDomainEntity } from 'src/engine/core-modules/approved-access-domain/approved-access-domain.entity';
+import { ApprovedAccessDomainEntity as ApprovedAccessDomainEntity } from 'src/engine/core-modules/approved-access-domain/approved-access-domain.entity';
 import {
   ApprovedAccessDomainException,
   ApprovedAccessDomainExceptionCode,
 } from 'src/engine/core-modules/approved-access-domain/approved-access-domain.exception';
 import { approvedAccessDomainValidator } from 'src/engine/core-modules/approved-access-domain/approved-access-domain.validate';
-import { DomainManagerService } from 'src/engine/core-modules/domain-manager/services/domain-manager.service';
+import { WorkspaceDomainsService } from 'src/engine/core-modules/domain/workspace-domains/services/workspace-domains.service';
 import { EmailService } from 'src/engine/core-modules/email/email.service';
+import { FileService } from 'src/engine/core-modules/file/services/file.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
-import { User } from 'src/engine/core-modules/user/user.entity';
-import { Workspace } from 'src/engine/core-modules/workspace/workspace.entity';
+import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
+import { WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
 import { isWorkDomain } from 'src/utils/is-work-email';
 
 @Injectable()
-// eslint-disable-next-line @nx/workspace-inject-workspace-repository
 export class ApprovedAccessDomainService {
   constructor(
-    @InjectRepository(ApprovedAccessDomainEntity, 'core')
+    @InjectRepository(ApprovedAccessDomainEntity)
     private readonly approvedAccessDomainRepository: Repository<ApprovedAccessDomainEntity>,
     private readonly emailService: EmailService,
     private readonly twentyConfigService: TwentyConfigService,
-    private readonly domainManagerService: DomainManagerService,
+    private readonly fileService: FileService,
+    private readonly workspaceDomainsService: WorkspaceDomainsService,
   ) {}
 
   async sendApprovedAccessDomainValidationEmail(
-    sender: User,
+    sender: WorkspaceMemberWorkspaceEntity,
     to: string,
-    workspace: Workspace,
+    workspace: WorkspaceEntity,
     approvedAccessDomain: ApprovedAccessDomainEntity,
   ) {
     if (approvedAccessDomain.isValidated) {
       throw new ApprovedAccessDomainException(
         'Approved access domain has already been validated',
         ApprovedAccessDomainExceptionCode.APPROVED_ACCESS_DOMAIN_ALREADY_VERIFIED,
+        {
+          userFriendlyMessage: msg`Approved access domain has already been validated`,
+        },
       );
     }
 
@@ -49,12 +55,15 @@ export class ApprovedAccessDomainService {
       throw new ApprovedAccessDomainException(
         'Approved access domain does not match email domain',
         ApprovedAccessDomainExceptionCode.APPROVED_ACCESS_DOMAIN_DOES_NOT_MATCH_DOMAIN_EMAIL,
+        {
+          userFriendlyMessage: msg`Approved access domain does not match email domain`,
+        },
       );
     }
 
-    const link = this.domainManagerService.buildWorkspaceURL({
+    const link = this.workspaceDomainsService.buildWorkspaceURL({
       workspace,
-      pathname: `settings/security`,
+      pathname: getSettingsPath(SettingsPath.Domains),
       searchParams: {
         wtdId: approvedAccessDomain.id,
         validationToken: this.generateUniqueHash(approvedAccessDomain),
@@ -63,15 +72,23 @@ export class ApprovedAccessDomainService {
 
     const emailTemplate = SendApprovedAccessDomainValidation({
       link: link.toString(),
-      workspace: { name: workspace.displayName, logo: workspace.logo },
+      workspace: {
+        name: workspace.displayName,
+        logo: workspace.logo
+          ? this.fileService.signFileUrl({
+              url: workspace.logo,
+              workspaceId: workspace.id,
+            })
+          : workspace.logo,
+      },
       domain: approvedAccessDomain.domain,
       sender: {
-        email: sender.email,
-        firstName: sender.firstName,
-        lastName: sender.lastName,
+        email: sender.userEmail,
+        firstName: sender.name.firstName,
+        lastName: sender.name.lastName,
       },
       serverUrl: this.twentyConfigService.get('SERVER_URL'),
-      locale: 'en' as keyof typeof APP_LOCALES,
+      locale: sender.locale,
     });
     const html = await render(emailTemplate);
     const text = await render(emailTemplate, {
@@ -79,7 +96,7 @@ export class ApprovedAccessDomainService {
     });
 
     await this.emailService.send({
-      from: `${sender.firstName} ${sender.lastName} (via Twenty) <${this.twentyConfigService.get('EMAIL_FROM_ADDRESS')}>`,
+      from: `${sender.name.firstName} ${sender.name.lastName} (via Twenty) <${this.twentyConfigService.get('EMAIL_FROM_ADDRESS')}>`,
       to,
       subject: 'Approve your access domain',
       text,
@@ -87,7 +104,9 @@ export class ApprovedAccessDomainService {
     });
   }
 
-  private generateUniqueHash(approvedAccessDomain: ApprovedAccessDomainEntity) {
+  private generateUniqueHash(
+    approvedAccessDomain: ApprovedAccessDomainEntity,
+  ): string {
     return crypto
       .createHash('sha256')
       .update(
@@ -118,6 +137,9 @@ export class ApprovedAccessDomainService {
       throw new ApprovedAccessDomainException(
         'Approved access domain has already been validated',
         ApprovedAccessDomainExceptionCode.APPROVED_ACCESS_DOMAIN_ALREADY_VALIDATED,
+        {
+          userFriendlyMessage: msg`Approved access domain has already been validated`,
+        },
       );
     }
 
@@ -139,8 +161,8 @@ export class ApprovedAccessDomainService {
 
   async createApprovedAccessDomain(
     domain: string,
-    inWorkspace: Workspace,
-    fromUser: User,
+    inWorkspace: WorkspaceEntity,
+    fromWorkspaceMember: WorkspaceMemberWorkspaceEntity,
     emailToValidateDomain: string,
   ): Promise<ApprovedAccessDomainEntity> {
     if (!isWorkDomain(domain)) {
@@ -159,6 +181,9 @@ export class ApprovedAccessDomainService {
       throw new ApprovedAccessDomainException(
         'Approved access domain already registered.',
         ApprovedAccessDomainExceptionCode.APPROVED_ACCESS_DOMAIN_ALREADY_REGISTERED,
+        {
+          userFriendlyMessage: msg`Approved access domain already registered.`,
+        },
       );
     }
 
@@ -170,7 +195,7 @@ export class ApprovedAccessDomainService {
     );
 
     await this.sendApprovedAccessDomainValidationEmail(
-      fromUser,
+      fromWorkspaceMember,
       emailToValidateDomain,
       inWorkspace,
       approvedAccessDomain,
@@ -180,7 +205,7 @@ export class ApprovedAccessDomainService {
   }
 
   async deleteApprovedAccessDomain(
-    workspace: Workspace,
+    workspace: WorkspaceEntity,
     approvedAccessDomainId: string,
   ) {
     const approvedAccessDomain =
@@ -196,10 +221,26 @@ export class ApprovedAccessDomainService {
     });
   }
 
-  async getApprovedAccessDomains(workspace: Workspace) {
+  async getApprovedAccessDomains(workspace: WorkspaceEntity) {
     return await this.approvedAccessDomainRepository.find({
       where: {
         workspaceId: workspace.id,
+      },
+    });
+  }
+
+  async findValidatedApprovedAccessDomainWithWorkspacesAndSSOIdentityProvidersDomain(
+    domain: string,
+  ) {
+    return await this.approvedAccessDomainRepository.find({
+      relations: [
+        'workspace',
+        'workspace.workspaceSSOIdentityProviders',
+        'workspace.approvedAccessDomains',
+      ],
+      where: {
+        domain,
+        isValidated: true,
       },
     });
   }

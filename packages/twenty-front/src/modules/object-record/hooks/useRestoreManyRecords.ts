@@ -1,7 +1,6 @@
-import { useApolloClient } from '@apollo/client';
-
 import { triggerUpdateRecordOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffect';
 import { apiConfigState } from '@/client-config/states/apiConfigState';
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useGetRecordFromCache } from '@/object-record/cache/hooks/useGetRecordFromCache';
@@ -10,8 +9,10 @@ import { getRecordNodeFromRecord } from '@/object-record/cache/utils/getRecordNo
 import { updateRecordFromCache } from '@/object-record/cache/utils/updateRecordFromCache';
 import { DEFAULT_MUTATION_BATCH_SIZE } from '@/object-record/constants/DefaultMutationBatchSize';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
+import { useRegisterObjectOperation } from '@/object-record/hooks/useRegisterObjectOperation';
 import { useRestoreManyRecordsMutation } from '@/object-record/hooks/useRestoreManyRecordsMutation';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useUpsertRecordsInStore';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { getRestoreManyRecordsMutationResponseField } from '@/object-record/utils/getRestoreManyRecordsMutationResponseField';
 import { useRecoilValue } from 'recoil';
 import { capitalize, isDefined } from 'twenty-shared/utils';
@@ -31,12 +32,15 @@ type RestoreManyRecordsProps = {
 export const useRestoreManyRecords = ({
   objectNameSingular,
 }: useRestoreManyRecordProps) => {
+  const { registerObjectOperation } = useRegisterObjectOperation();
+  const { upsertRecordsInStore } = useUpsertRecordsInStore();
+
   const apiConfig = useRecoilValue(apiConfigState);
 
   const mutationPageSize =
     apiConfig?.mutationMaximumAffectedRecords ?? DEFAULT_MUTATION_BATCH_SIZE;
 
-  const apolloClient = useApolloClient();
+  const apolloCoreClient = useApolloCoreClient();
 
   const { objectMetadataItem } = useObjectMetadataItem({
     objectNameSingular,
@@ -73,7 +77,7 @@ export const useRestoreManyRecords = ({
 
       const cachedRecords = batchedIdsToRestore
         .map((idToRestore) =>
-          getRecordFromCache(idToRestore, apolloClient.cache),
+          getRecordFromCache(idToRestore, apolloCoreClient.cache),
         )
         .filter(isDefined);
 
@@ -109,23 +113,25 @@ export const useRestoreManyRecords = ({
             updateRecordFromCache({
               objectMetadataItems,
               objectMetadataItem,
-              cache: apolloClient.cache,
+              cache: apolloCoreClient.cache,
               record: computedOptimisticRecord,
               recordGqlFields,
               objectPermissionsByObjectMetadataId,
             });
             triggerUpdateRecordOptimisticEffect({
-              cache: apolloClient.cache,
+              cache: apolloCoreClient.cache,
               objectMetadataItem,
               currentRecord: cachedRecordWithConnection,
               updatedRecord: optimisticRecordWithConnection,
               objectMetadataItems,
+              objectPermissionsByObjectMetadataId,
+              upsertRecordsInStore,
             });
           }
         });
       }
 
-      const restoredRecordsResponse = await apolloClient
+      const restoredRecordsResponse = await apolloCoreClient
         .mutate({
           mutation: restoreManyRecordsMutation,
           variables: {
@@ -168,18 +174,20 @@ export const useRestoreManyRecords = ({
               updateRecordFromCache({
                 objectMetadataItems,
                 objectMetadataItem,
-                cache: apolloClient.cache,
+                cache: apolloCoreClient.cache,
                 record: cachedRecord,
                 recordGqlFields,
                 objectPermissionsByObjectMetadataId,
               });
 
               triggerUpdateRecordOptimisticEffect({
-                cache: apolloClient.cache,
+                cache: apolloCoreClient.cache,
                 objectMetadataItem,
                 currentRecord: optimisticRecordWithConnection,
                 updatedRecord: cachedRecordWithConnection,
                 objectMetadataItems,
+                objectPermissionsByObjectMetadataId,
+                upsertRecordsInStore,
               });
             }
           });
@@ -191,6 +199,10 @@ export const useRestoreManyRecords = ({
         restoredRecordsResponse.data?.[mutationResponseField] ?? [];
 
       restoredRecords.push(...restoredRecordsForThisBatch);
+
+      registerObjectOperation(objectMetadataItem.nameSingular, {
+        type: 'restore-many',
+      });
 
       if (isDefined(delayInMsBetweenRequests)) {
         await sleep(delayInMsBetweenRequests);

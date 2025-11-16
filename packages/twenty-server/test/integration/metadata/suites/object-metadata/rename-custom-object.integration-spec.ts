@@ -3,13 +3,8 @@ import { createOneObjectMetadata } from 'test/integration/metadata/suites/object
 import { deleteOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/delete-one-object-metadata.util';
 import { findManyObjectMetadataQueryFactory } from 'test/integration/metadata/suites/object-metadata/utils/find-many-object-metadata-query-factory.util';
 import { updateOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/update-one-object-metadata.util';
-import { createOneRelationMetadataFactory } from 'test/integration/metadata/suites/utils/create-one-relation-metadata-factory.util';
 import { makeMetadataAPIRequest } from 'test/integration/metadata/suites/utils/make-metadata-api-request.util';
 import { FieldMetadataType } from 'twenty-shared/types';
-
-import { RelationMetadataType } from 'src/engine/metadata-modules/relation-metadata/relation-metadata.entity';
-
-const LISTING_NAME_SINGULAR = 'listing';
 
 describe('Custom object renaming', () => {
   let listingObjectId = '';
@@ -83,19 +78,20 @@ describe('Custom object renaming', () => {
 
     fillStandardObjectRelationsMapObjectMetadataId(standardObjects);
 
-    const LISTING_OBJECT = {
-      namePlural: 'listings',
-      nameSingular: LISTING_NAME_SINGULAR,
-      labelPlural: 'Listings',
-      labelSingular: 'Listing',
-      description: 'Listing object',
+    const CUSTOM_OBJECT = {
+      namePlural: 'customObjectNamePlural',
+      nameSingular: 'customObjectNameSingular',
+      labelPlural: 'customObjectLabelPlural',
+      labelSingular: 'customObjectLabelSingular',
+      description: 'Custom object description',
       icon: 'IconListNumbers',
       isLabelSyncedWithName: false,
     };
 
     // Act
     const { data } = await createOneObjectMetadata({
-      input: LISTING_OBJECT,
+      expectToFail: false,
+      input: CUSTOM_OBJECT,
       gqlFields: `
           id
           nameSingular
@@ -103,7 +99,7 @@ describe('Custom object renaming', () => {
     });
 
     // Assert
-    expect(data.createOneObject.nameSingular).toBe(LISTING_NAME_SINGULAR);
+    expect(data.createOneObject.nameSingular).toBe(CUSTOM_OBJECT.nameSingular);
 
     listingObjectId = data.createOneObject.id;
 
@@ -113,7 +109,7 @@ describe('Custom object renaming', () => {
       .filter(
         // @ts-expect-error legacy noImplicitAny
         (field) =>
-          field.node.name === `${LISTING_NAME_SINGULAR}` &&
+          field.node.name === `${CUSTOM_OBJECT.nameSingular}` &&
           field.node.type === FieldMetadataType.RELATION,
       )
       // @ts-expect-error legacy noImplicitAny
@@ -137,52 +133,7 @@ describe('Custom object renaming', () => {
     });
   });
 
-  let relationFieldMetadataOnPersonId = '';
-  const RELATION_FROM_NAME = 'guest';
-
-  it('2. should create a custom relation with the custom object', async () => {
-    // Arrange
-    const standardObjects = await makeMetadataAPIRequest(
-      standardObjectsGraphqlOperation,
-    );
-    const personObjectId = standardObjects.body.data.objects.edges.find(
-      // @ts-expect-error legacy noImplicitAny
-      (object) => object.node.nameSingular === 'person',
-    ).node.id;
-
-    // Act
-    const createRelationGraphqlOperation = createOneRelationMetadataFactory({
-      input: {
-        relationMetadata: {
-          fromDescription: '',
-          fromIcon: 'IconRelationOneToMany',
-          fromLabel: 'Guest',
-          fromName: RELATION_FROM_NAME,
-          fromObjectMetadataId: listingObjectId,
-          relationType: RelationMetadataType.ONE_TO_MANY,
-          toDescription: undefined,
-          toIcon: 'IconListNumbers',
-          toLabel: 'Property',
-          toName: 'property',
-          toObjectMetadataId: personObjectId,
-        },
-      },
-      gqlFields: `
-        id
-        fromFieldMetadataId
-      `,
-    });
-
-    const relationResponse = await makeMetadataAPIRequest(
-      createRelationGraphqlOperation,
-    );
-
-    // Assert
-    relationFieldMetadataOnPersonId =
-      relationResponse.body.data.createOneRelationMetadata.fromFieldMetadataId;
-  });
-
-  it('3. should rename custom object', async () => {
+  it('2. should rename custom object', async () => {
     // Arrange
     const HOUSE_NAME_SINGULAR = 'house';
     const HOUSE_NAME_PLURAL = 'houses';
@@ -191,6 +142,7 @@ describe('Custom object renaming', () => {
 
     // Act
     const { data } = await updateOneObjectMetadata({
+      expectToFail: false,
       gqlFields: `
         nameSingular
         labelSingular
@@ -213,40 +165,19 @@ describe('Custom object renaming', () => {
     expect(data.updateOneObject.namePlural).toBe(HOUSE_NAME_PLURAL);
     expect(data.updateOneObject.labelSingular).toBe(HOUSE_LABEL_SINGULAR);
     expect(data.updateOneObject.labelPlural).toBe(HOUSE_LABEL_PLURAL);
-
-    const fieldsResponse = await makeMetadataAPIRequest(fieldsGraphqlOperation);
-
-    const fieldsMetadata = fieldsResponse.body.data.fields.edges.map(
-      // @ts-expect-error legacy noImplicitAny
-      (field) => field.node,
-    );
-
-    // standard relations have been updated
-    STANDARD_OBJECT_RELATIONS.forEach((relation) => {
-      // relation field
-      const relationFieldMetadataId =
-        // @ts-expect-error legacy noImplicitAny
-        standardObjectRelationsMap[relation].relationFieldMetadataId;
-
-      const updatedRelationFieldMetadataId = fieldsMetadata.find(
-        // @ts-expect-error legacy noImplicitAny
-        (field) => field.id === relationFieldMetadataId,
-      );
-
-      expect(updatedRelationFieldMetadataId.name).toBe(HOUSE_NAME_SINGULAR);
-      expect(updatedRelationFieldMetadataId.label).toBe(HOUSE_LABEL_SINGULAR);
-    });
-
-    // custom relation are unchanged
-    const updatedRelationFieldMetadata = fieldsMetadata.find(
-      // @ts-expect-error legacy noImplicitAny
-      (field) => field.id === relationFieldMetadataOnPersonId,
-    );
-
-    expect(updatedRelationFieldMetadata.name).toBe(RELATION_FROM_NAME);
   });
 
-  it('4. should delete custom object', async () => {
+  it('3. should delete custom object', async () => {
+    await updateOneObjectMetadata({
+      expectToFail: false,
+      input: {
+        idToUpdate: listingObjectId,
+        updatePayload: {
+          isActive: false,
+        },
+      },
+    });
+
     const { data } = await deleteOneObjectMetadata({
       input: {
         idToDelete: listingObjectId,

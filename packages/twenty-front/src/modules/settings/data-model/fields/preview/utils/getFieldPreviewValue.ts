@@ -1,40 +1,48 @@
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { isFieldValueEmpty } from '@/object-record/record-field/utils/isFieldValueEmpty';
+import { type FieldMetadata } from '@/object-record/record-field/ui/types/FieldMetadata';
+import { isFieldValueEmpty } from '@/object-record/record-field/ui/utils/isFieldValueEmpty';
 import { generateEmptyFieldValue } from '@/object-record/utils/generateEmptyFieldValue';
 import { getSettingsFieldTypeConfig } from '@/settings/data-model/utils/getSettingsFieldTypeConfig';
 import { isFieldTypeSupportedInSettings } from '@/settings/data-model/utils/isFieldTypeSupportedInSettings';
+import { type FieldMetadataType } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { stripSimpleQuotesFromStringRecursive } from '~/utils/string/stripSimpleQuotesFromString';
 
 type getFieldPreviewValueArgs = {
-  fieldMetadataItem: Pick<FieldMetadataItem, 'type' | 'defaultValue'>;
+  fieldType: FieldMetadataType;
+  fieldSettings: FieldMetadata['settings'];
+  defaultValue: unknown;
 };
 export const getFieldPreviewValue = ({
-  fieldMetadataItem,
+  fieldType,
+  fieldSettings,
+  defaultValue,
 }: getFieldPreviewValueArgs) => {
-  if (!isFieldTypeSupportedInSettings(fieldMetadataItem.type)) return null;
+  if (!isFieldTypeSupportedInSettings(fieldType)) return null;
 
   if (
     !isFieldValueEmpty({
-      fieldDefinition: { type: fieldMetadataItem.type },
-      fieldValue: stripSimpleQuotesFromStringRecursive(
-        fieldMetadataItem.defaultValue,
-      ),
+      fieldDefinition: { type: fieldType },
+      fieldValue: stripSimpleQuotesFromStringRecursive(defaultValue),
     })
   ) {
     return generateEmptyFieldValue({
-      fieldMetadataItem,
+      fieldMetadataItem: {
+        type: fieldType,
+        settings: fieldSettings,
+        defaultValue,
+      },
+      shouldComputeFunctionDefaultValue: true,
     });
   }
 
-  const fieldTypeConfig = getSettingsFieldTypeConfig(fieldMetadataItem.type);
+  const fieldTypeConfig = getSettingsFieldTypeConfig(fieldType);
 
   if (
     isDefined(fieldTypeConfig) &&
-    'exampleValue' in fieldTypeConfig &&
-    isDefined(fieldTypeConfig.exampleValue)
+    'exampleValues' in fieldTypeConfig &&
+    isDefined(fieldTypeConfig.exampleValues?.[0])
   ) {
-    return fieldTypeConfig.exampleValue;
+    return fieldTypeConfig.exampleValues?.[0];
   }
 
   return null;

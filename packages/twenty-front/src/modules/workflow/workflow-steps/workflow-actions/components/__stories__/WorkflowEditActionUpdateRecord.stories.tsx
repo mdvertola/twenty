@@ -1,5 +1,5 @@
-import { WorkflowUpdateRecordAction } from '@/workflow/types/Workflow';
-import { Meta, StoryObj } from '@storybook/react';
+import { type WorkflowUpdateRecordAction } from '@/workflow/types/Workflow';
+import { type Meta, type StoryObj } from '@storybook/react';
 import { expect, fn, userEvent, within } from '@storybook/test';
 import { ComponentDecorator, RouterDecorator } from 'twenty-ui/testing';
 import { I18nFrontDecorator } from '~/testing/decorators/I18nFrontDecorator';
@@ -49,7 +49,7 @@ const DEFAULT_ACTION = {
 } satisfies WorkflowUpdateRecordAction;
 
 const meta: Meta<typeof WorkflowEditActionUpdateRecord> = {
-  title: 'Modules/Workflow/WorkflowEditActionUpdateRecord',
+  title: 'Modules/Workflow/Actions/UpdateRecord/EditAction',
   component: WorkflowEditActionUpdateRecord,
   parameters: {
     msw: graphqlMocks,
@@ -111,9 +111,7 @@ export const DisabledWithEmptyValues: Story = {
     }
 
     const openRecordSelectButton = within(
-      await canvas.findByTestId(
-        'workflow-edit-action-record-update-object-record-id',
-      ),
+      await canvas.findByTestId('workflow-update-record-object-record-id'),
     ).queryByRole('button');
 
     expect(openRecordSelectButton).not.toBeInTheDocument();
@@ -179,9 +177,7 @@ export const DisabledWithDefaultStaticValues: Story = {
     expect(selectedRecord).toBeVisible();
 
     const openRecordSelectButton = within(
-      await canvas.findByTestId(
-        'workflow-edit-action-record-update-object-record-id',
-      ),
+      await canvas.findByTestId('workflow-update-record-object-record-id'),
     ).queryByRole('button');
 
     expect(openRecordSelectButton).not.toBeInTheDocument();
@@ -241,9 +237,7 @@ export const DisabledWithDefaultVariableValues: Story = {
     }
 
     const openRecordSelectButton = within(
-      await canvas.findByTestId(
-        'workflow-edit-action-record-update-object-record-id',
-      ),
+      await canvas.findByTestId('workflow-update-record-object-record-id'),
     ).queryByRole('button');
 
     expect(openRecordSelectButton).not.toBeInTheDocument();

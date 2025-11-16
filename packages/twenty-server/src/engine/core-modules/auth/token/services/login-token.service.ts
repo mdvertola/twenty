@@ -3,9 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { addMilliseconds } from 'date-fns';
 import ms from 'ms';
 
-import { AuthToken } from 'src/engine/core-modules/auth/dto/token.entity';
+import { type AuthToken } from 'src/engine/core-modules/auth/dto/auth-token.dto';
+import {
+  type LoginTokenJwtPayload,
+  JwtTokenTypeEnum,
+} from 'src/engine/core-modules/auth/types/auth-context.type';
 import { JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { type AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 
 @Injectable()
 export class LoginTokenService {
@@ -17,19 +22,25 @@ export class LoginTokenService {
   async generateLoginToken(
     email: string,
     workspaceId: string,
+    authProvider: AuthProviderEnum,
+    options?: { impersonatorUserWorkspaceId?: string },
   ): Promise<AuthToken> {
+    const jwtPayload: LoginTokenJwtPayload = {
+      type: JwtTokenTypeEnum.LOGIN,
+      sub: email,
+      workspaceId,
+      authProvider,
+      impersonatorUserWorkspaceId: options?.impersonatorUserWorkspaceId,
+    };
+
     const secret = this.jwtWrapperService.generateAppSecret(
-      'LOGIN',
+      jwtPayload.type,
       workspaceId,
     );
 
     const expiresIn = this.twentyConfigService.get('LOGIN_TOKEN_EXPIRES_IN');
 
     const expiresAt = addMilliseconds(new Date().getTime(), ms(expiresIn));
-    const jwtPayload = {
-      sub: email,
-      workspaceId,
-    };
 
     return {
       token: this.jwtWrapperService.sign(jwtPayload, {
@@ -40,10 +51,11 @@ export class LoginTokenService {
     };
   }
 
-  async verifyLoginToken(
-    loginToken: string,
-  ): Promise<{ sub: string; workspaceId: string }> {
-    await this.jwtWrapperService.verifyWorkspaceToken(loginToken, 'LOGIN');
+  async verifyLoginToken(loginToken: string): Promise<LoginTokenJwtPayload> {
+    await this.jwtWrapperService.verifyJwtToken(
+      loginToken,
+      JwtTokenTypeEnum.LOGIN,
+    );
 
     return this.jwtWrapperService.decode(loginToken, {
       json: true,

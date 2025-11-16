@@ -1,15 +1,15 @@
 import { Select } from '@/ui/input/components/Select';
 import { SelectControl } from '@/ui/input/components/SelectControl';
 import { TextArea } from '@/ui/input/components/TextArea';
-import { TextInputV2 } from '@/ui/input/components/TextInputV2';
-import { SelectHotkeyScope } from '@/ui/input/types/SelectHotkeyScope';
+import { TextInput } from '@/ui/input/components/TextInput';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
-import { ConfigVariableValue } from 'twenty-shared/types';
+import { type ConfigVariableValue } from 'twenty-shared/types';
+import { CustomError } from 'twenty-shared/utils';
 import { MenuItemMultiSelect } from 'twenty-ui/navigation';
 import { ConfigVariableType } from '~/generated/graphql';
-import { ConfigVariableOptions } from '../types/ConfigVariableOptions';
+import { type ConfigVariableOptions } from '../types/ConfigVariableOptions';
 
 type ConfigVariableDatabaseInputProps = {
   label: string;
@@ -60,6 +60,8 @@ export const ConfigVariableDatabaseInput = ({
     onChange(newValues);
   };
 
+  const jsonArrayTextAreaId = `${label}-json-array`;
+
   switch (type) {
     case ConfigVariableType.BOOLEAN:
       return (
@@ -76,7 +78,7 @@ export const ConfigVariableDatabaseInput = ({
 
     case ConfigVariableType.NUMBER:
       return (
-        <TextInputV2
+        <TextInput
           label={label}
           value={value !== null && value !== undefined ? String(value) : ''}
           onChange={(text) => {
@@ -96,7 +98,6 @@ export const ConfigVariableDatabaseInput = ({
           {options && Array.isArray(options) ? (
             <Dropdown
               dropdownId="config-variable-array-dropdown"
-              dropdownHotkeyScope={{ scope: SelectHotkeyScope.Select }}
               dropdownPlacement="bottom-start"
               dropdownOffset={{
                 y: 8,
@@ -135,6 +136,7 @@ export const ConfigVariableDatabaseInput = ({
             />
           ) : (
             <TextArea
+              textAreaId={jsonArrayTextAreaId}
               label={label}
               value={
                 Array.isArray(value)
@@ -171,7 +173,7 @@ export const ConfigVariableDatabaseInput = ({
 
     case ConfigVariableType.STRING:
       return (
-        <TextInputV2
+        <TextInput
           label={label}
           value={
             typeof value === 'string'
@@ -188,6 +190,6 @@ export const ConfigVariableDatabaseInput = ({
       );
 
     default:
-      throw new Error(`Unsupported type: ${type}`);
+      throw new CustomError(`Unsupported type: ${type}`, 'UNSUPPORTED_TYPE');
   }
 };

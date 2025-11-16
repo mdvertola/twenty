@@ -2,14 +2,15 @@ import { SETTINGS_PLAYGROUND_FORM_SCHEMA_SELECT_OPTIONS } from '@/settings/playg
 import { playgroundApiKeyState } from '@/settings/playground/states/playgroundApiKeyState';
 import { PlaygroundSchemas } from '@/settings/playground/types/PlaygroundSchemas';
 import { PlaygroundTypes } from '@/settings/playground/types/PlaygroundTypes';
-import { SettingsPath } from '@/types/SettingsPath';
 import { Select } from '@/ui/input/components/Select';
-import { TextInput } from '@/ui/input/components/TextInput';
+import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
 import styled from '@emotion/styled';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLingui } from '@lingui/react/macro';
 import { Controller, useForm } from 'react-hook-form';
 import { useRecoilState } from 'recoil';
+import { SettingsPath } from 'twenty-shared/types';
+import { CustomError } from 'twenty-shared/utils';
 import { IconApi, IconBrandGraphql } from 'twenty-ui/display';
 import { Button } from 'twenty-ui/input';
 import { z } from 'zod';
@@ -18,8 +19,8 @@ import { useNavigateSettings } from '~/hooks/useNavigateSettings';
 
 const playgroundSetupFormSchema = z.object({
   apiKeyForPlayground: z.string(),
-  schema: z.nativeEnum(PlaygroundSchemas),
-  playgroundType: z.nativeEnum(PlaygroundTypes),
+  schema: z.enum(PlaygroundSchemas),
+  playgroundType: z.enum(PlaygroundTypes),
 });
 
 type PlaygroundSetupFormValues = z.infer<typeof playgroundSetupFormSchema>;
@@ -66,7 +67,10 @@ export const PlaygroundSetupForm = () => {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new CustomError(
+          `HTTP error! status: ${response.status}`,
+          'HTTP_ERROR',
+        );
       }
 
       const openAPIReference = await response.json();
@@ -76,7 +80,7 @@ export const PlaygroundSetupForm = () => {
       }
 
       return true;
-    } catch (error) {
+    } catch {
       throw new Error(t`Invalid API key`);
     }
   };
@@ -112,7 +116,8 @@ export const PlaygroundSetupForm = () => {
         name="apiKeyForPlayground"
         control={control}
         render={({ field: { onChange, value }, fieldState: { error } }) => (
-          <TextInput
+          <SettingsTextInput
+            instanceId="playground-api-key"
             label={t`API Key`}
             placeholder="Enter your API key"
             value={value}

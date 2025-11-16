@@ -3,7 +3,8 @@ import { isUndefined } from '@sniptt/guards';
 
 import { CalendarEventNotSharedContent } from '@/activities/calendar/components/CalendarEventNotSharedContent';
 import { CalendarEventParticipantsAvatarGroup } from '@/activities/calendar/components/CalendarEventParticipantsAvatarGroup';
-import { CalendarEvent } from '@/activities/calendar/types/CalendarEvent';
+import { type CalendarEvent } from '@/activities/calendar/types/CalendarEvent';
+import { useOpenCalendarEventInCommandMenu } from '@/command-menu/hooks/useOpenCalendarEventInCommandMenu';
 import { CoreObjectNameSingular } from '@/object-metadata/types/CoreObjectNameSingular';
 import { useFindOneRecord } from '@/object-record/hooks/useFindOneRecord';
 import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useUpsertRecordsInStore';
@@ -18,8 +19,10 @@ import {
 } from '~/utils/format/formatDate';
 import { isUndefinedOrNull } from '~/utils/isUndefinedOrNull';
 
-const StyledEventCardCalendarEventContainer = styled.div`
-  cursor: pointer;
+const StyledEventCardCalendarEventContainer = styled.div<{
+  canOpen?: boolean;
+}>`
+  cursor: ${({ canOpen }) => (canOpen ? 'pointer' : 'not-allowed')};
   display: flex;
   flex-direction: row;
   gap: ${({ theme }) => theme.spacing(2)};
@@ -91,7 +94,9 @@ export const EventCardCalendarEvent = ({
 }: {
   calendarEventId: string;
 }) => {
-  const { upsertRecords } = useUpsertRecordsInStore();
+  const { upsertRecordsInStore } = useUpsertRecordsInStore();
+  const { openCalendarEventInCommandMenu } =
+    useOpenCalendarEventInCommandMenu();
 
   const {
     record: calendarEvent,
@@ -113,7 +118,7 @@ export const EventCardCalendarEvent = ({
       },
     },
     onCompleted: (data) => {
-      upsertRecords([data]);
+      upsertRecordsInStore([data]);
     },
   });
 
@@ -159,8 +164,20 @@ export const EventCardCalendarEvent = ({
     ? formatToHumanReadableTime(endsAtDate, timeZone)
     : null;
 
+  const canOpen =
+    calendarEvent.title !== FIELD_RESTRICTED_ADDITIONAL_PERMISSIONS_REQUIRED;
+
+  const handleClick = () => {
+    if (canOpen) {
+      openCalendarEventInCommandMenu(calendarEventId);
+    }
+  };
+
   return (
-    <StyledEventCardCalendarEventContainer>
+    <StyledEventCardCalendarEventContainer
+      onClick={handleClick}
+      canOpen={canOpen}
+    >
       <StyledCalendarEventDateCard>
         <StyledCalendarEventDateCardMonth>
           {startsAtMonth}

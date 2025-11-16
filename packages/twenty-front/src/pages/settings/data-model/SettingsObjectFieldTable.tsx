@@ -1,25 +1,26 @@
-import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
 import {
   SettingsObjectFieldItemTableRow,
   StyledObjectFieldTableRow,
 } from '@/settings/data-model/object-details/components/SettingsObjectFieldItemTableRow';
 import { settingsObjectFieldsFamilyState } from '@/settings/data-model/object-details/states/settingsObjectFieldsFamilyState';
-import { TextInput } from '@/ui/input/components/TextInput';
+import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
 import { SortableTableHeader } from '@/ui/layout/table/components/SortableTableHeader';
 import { Table } from '@/ui/layout/table/components/Table';
 import { TableHeader } from '@/ui/layout/table/components/TableHeader';
 import { TableSection } from '@/ui/layout/table/components/TableSection';
 import { useSortedArray } from '@/ui/layout/table/hooks/useSortedArray';
-import { TableMetadata } from '@/ui/layout/table/types/TableMetadata';
+import { type TableMetadata } from '@/ui/layout/table/types/TableMetadata';
 import styled from '@emotion/styled';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react/macro';
 import { isNonEmptyArray } from '@sniptt/guards';
 import { useEffect, useMemo, useState } from 'react';
 import { useRecoilState } from 'recoil';
-import { useMapFieldMetadataItemToSettingsObjectDetailTableItem } from '~/pages/settings/data-model/hooks/useMapFieldMetadataItemToSettingsObjectDetailTableItem';
-import { SettingsObjectDetailTableItem } from '~/pages/settings/data-model/types/SettingsObjectDetailTableItem';
 import { IconSearch } from 'twenty-ui/display';
+import { useMapFieldMetadataItemToSettingsObjectDetailTableItem } from '~/pages/settings/data-model/hooks/useMapFieldMetadataItemToSettingsObjectDetailTableItem';
+import { type SettingsObjectDetailTableItem } from '~/pages/settings/data-model/types/SettingsObjectDetailTableItem';
+import { normalizeSearchText } from '~/utils/normalizeSearchText';
 
 const GET_SETTINGS_OBJECT_DETAIL_TABLE_METADATA_STANDARD: TableMetadata<SettingsObjectDetailTableItem> =
   {
@@ -79,7 +80,7 @@ const GET_SETTINGS_OBJECT_DETAIL_TABLE_METADATA_CUSTOM: TableMetadata<SettingsOb
     },
   };
 
-const StyledSearchInput = styled(TextInput)`
+const StyledSearchInput = styled(SettingsTextInput)`
   padding-bottom: ${({ theme }) => theme.spacing(2)};
   width: 100%;
 `;
@@ -155,29 +156,30 @@ export const SettingsObjectFieldTable = ({
     tableMetadata,
   );
 
-  const filteredActiveItems = useMemo(
-    () =>
-      sortedActiveObjectSettingsDetailItems.filter(
-        (item) =>
-          item.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.dataType.toLowerCase().includes(searchTerm.toLowerCase()),
-      ),
-    [sortedActiveObjectSettingsDetailItems, searchTerm],
-  );
+  const filteredActiveItems = useMemo(() => {
+    const searchNormalized = normalizeSearchText(searchTerm);
+    return sortedActiveObjectSettingsDetailItems.filter((item) => {
+      return (
+        normalizeSearchText(item.label).includes(searchNormalized) ||
+        normalizeSearchText(item.dataType).includes(searchNormalized)
+      );
+    });
+  }, [sortedActiveObjectSettingsDetailItems, searchTerm]);
 
-  const filteredDisabledItems = useMemo(
-    () =>
-      sortedDisabledObjectSettingsDetailItems.filter(
-        (item) =>
-          item.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.dataType.toLowerCase().includes(searchTerm.toLowerCase()),
-      ),
-    [sortedDisabledObjectSettingsDetailItems, searchTerm],
-  );
+  const filteredDisabledItems = useMemo(() => {
+    const searchNormalized = normalizeSearchText(searchTerm);
+    return sortedDisabledObjectSettingsDetailItems.filter((item) => {
+      return (
+        normalizeSearchText(item.label).includes(searchNormalized) ||
+        normalizeSearchText(item.dataType).includes(searchNormalized)
+      );
+    });
+  }, [sortedDisabledObjectSettingsDetailItems, searchTerm]);
 
   return (
     <>
       <StyledSearchInput
+        instanceId="object-field-table-search"
         LeftIcon={IconSearch}
         placeholder={t`Search a field...`}
         value={searchTerm}

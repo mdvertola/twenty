@@ -3,49 +3,52 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import crypto from 'crypto';
 
-import { i18n } from '@lingui/core';
-import { t } from '@lingui/core/macro';
+import { msg } from '@lingui/core/macro';
 import { render } from '@react-email/render';
 import { addMilliseconds } from 'date-fns';
 import ms from 'ms';
 import { SendInviteLinkEmail } from 'twenty-emails';
-import { APP_LOCALES } from 'twenty-shared/translations';
-import { IsNull, Repository } from 'typeorm';
+import { AppPath } from 'twenty-shared/types';
+import { getAppPath, isDefined } from 'twenty-shared/utils';
+import { type QueryRunner, IsNull, Repository } from 'typeorm';
 
 import {
-  AppToken,
+  AppTokenEntity,
   AppTokenType,
 } from 'src/engine/core-modules/app-token/app-token.entity';
 import {
   AuthException,
   AuthExceptionCode,
 } from 'src/engine/core-modules/auth/auth.exception';
-import { DomainManagerService } from 'src/engine/core-modules/domain-manager/services/domain-manager.service';
+import { WorkspaceDomainsService } from 'src/engine/core-modules/domain/workspace-domains/services/workspace-domains.service';
 import { EmailService } from 'src/engine/core-modules/email/email.service';
+import { FileService } from 'src/engine/core-modules/file/services/file.service';
+import { I18nService } from 'src/engine/core-modules/i18n/i18n.service';
 import { OnboardingService } from 'src/engine/core-modules/onboarding/onboarding.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
-import { UserWorkspace } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
-import { User } from 'src/engine/core-modules/user/user.entity';
-import { SendInvitationsOutput } from 'src/engine/core-modules/workspace-invitation/dtos/send-invitations.output';
+import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
+import { type SendInvitationsOutput } from 'src/engine/core-modules/workspace-invitation/dtos/send-invitations.output';
 import { castAppTokenToWorkspaceInvitationUtil } from 'src/engine/core-modules/workspace-invitation/utils/cast-app-token-to-workspace-invitation.util';
 import {
   WorkspaceInvitationException,
   WorkspaceInvitationExceptionCode,
 } from 'src/engine/core-modules/workspace-invitation/workspace-invitation.exception';
-import { Workspace } from 'src/engine/core-modules/workspace/workspace.entity';
+import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
+import { WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
 
 @Injectable()
-// eslint-disable-next-line @nx/workspace-inject-workspace-repository
 export class WorkspaceInvitationService {
   constructor(
-    @InjectRepository(AppToken, 'core')
-    private readonly appTokenRepository: Repository<AppToken>,
-    @InjectRepository(UserWorkspace, 'core')
-    private readonly userWorkspaceRepository: Repository<UserWorkspace>,
+    @InjectRepository(AppTokenEntity)
+    private readonly appTokenRepository: Repository<AppTokenEntity>,
+    @InjectRepository(UserWorkspaceEntity)
+    private readonly userWorkspaceRepository: Repository<UserWorkspaceEntity>,
     private readonly twentyConfigService: TwentyConfigService,
     private readonly emailService: EmailService,
     private readonly onboardingService: OnboardingService,
-    private readonly domainManagerService: DomainManagerService,
+    private readonly workspaceDomainsService: WorkspaceDomainsService,
+    private readonly i18nService: I18nService,
+    private readonly fileService: FileService,
   ) {}
 
   async validatePersonalInvitation({
@@ -61,7 +64,7 @@ export class WorkspaceInvitationService {
           value: workspacePersonalInviteToken,
           type: AppTokenType.InvitationToken,
         },
-        relations: ['workspace'],
+        relations: { workspace: true },
       });
 
       if (!appToken) {
@@ -85,21 +88,19 @@ export class WorkspaceInvitationService {
     }
   }
 
-  async findInvitationByWorkspaceSubdomainAndUserEmail({
-    subdomain,
-    email,
-  }: {
-    subdomain: string;
-    email: string;
-  }) {
-    const workspace =
-      await this.domainManagerService.getWorkspaceBySubdomainOrDefaultWorkspace(
-        subdomain,
-      );
-
-    if (!workspace) return;
-
-    return await this.getOneWorkspaceInvitation(workspace.id, email);
+  async findInvitationsByEmail(email: string) {
+    return await this.appTokenRepository
+      .createQueryBuilder('appToken')
+      .innerJoinAndSelect('appToken.workspace', 'workspace')
+      .where('"appToken".type = :type', {
+        type: AppTokenType.InvitationToken,
+      })
+      .andWhere('"appToken".context->>\'email\' = :email', { email })
+      .andWhere('appToken.deletedAt IS NULL')
+      .andWhere('appToken.expiresAt > :now', {
+        now: new Date(),
+      })
+      .getMany();
   }
 
   async getOneWorkspaceInvitation(workspaceId: string, email: string) {
@@ -121,7 +122,7 @@ export class WorkspaceInvitationService {
         value: invitationToken,
         type: AppTokenType.InvitationToken,
       },
-      relations: ['workspace'],
+      relations: { workspace: true },
     });
 
     if (!appToken) {
@@ -134,7 +135,7 @@ export class WorkspaceInvitationService {
     return appToken;
   }
 
-  async loadWorkspaceInvitations(workspace: Workspace) {
+  async loadWorkspaceInvitations(workspace: WorkspaceEntity) {
     const appTokens = await this.appTokenRepository.find({
       where: {
         workspaceId: workspace.id,
@@ -149,7 +150,7 @@ export class WorkspaceInvitationService {
     return appTokens.map(castAppTokenToWorkspaceInvitationUtil);
   }
 
-  async createWorkspaceInvitation(email: string, workspace: Workspace) {
+  async createWorkspaceInvitation(email: string, workspace: WorkspaceEntity) {
     const maybeWorkspaceInvitation = await this.getOneWorkspaceInvitation(
       workspace.id,
       email.toLowerCase(),
@@ -202,18 +203,30 @@ export class WorkspaceInvitationService {
     return 'success';
   }
 
-  async invalidateWorkspaceInvitation(workspaceId: string, email: string) {
+  async invalidateWorkspaceInvitation(
+    workspaceId: string,
+    email: string,
+    queryRunner?: QueryRunner,
+  ) {
     const appToken = await this.getOneWorkspaceInvitation(workspaceId, email);
 
-    if (appToken) {
+    if (!isDefined(appToken)) {
+      return;
+    }
+
+    if (queryRunner) {
+      await queryRunner.manager
+        .getRepository(AppTokenEntity)
+        .delete(appToken.id);
+    } else {
       await this.appTokenRepository.delete(appToken.id);
     }
   }
 
   async resendWorkspaceInvitation(
     appTokenId: string,
-    workspace: Workspace,
-    sender: User,
+    workspace: WorkspaceEntity,
+    sender: WorkspaceMemberWorkspaceEntity,
   ) {
     const appToken = await this.appTokenRepository.findOne({
       where: {
@@ -237,8 +250,8 @@ export class WorkspaceInvitationService {
 
   async sendInvitations(
     emails: string[],
-    workspace: Workspace,
-    sender: User,
+    workspace: WorkspaceEntity,
+    sender: WorkspaceMemberWorkspaceEntity,
     usePersonalInvitation = true,
   ): Promise<SendInvitationsOutput> {
     if (!workspace?.inviteHash) {
@@ -280,9 +293,11 @@ export class WorkspaceInvitationService {
 
     for (const invitation of invitationsPr) {
       if (invitation.status === 'fulfilled') {
-        const link = this.domainManagerService.buildWorkspaceURL({
+        const link = this.workspaceDomainsService.buildWorkspaceURL({
           workspace,
-          pathname: `invite/${workspace?.inviteHash}`,
+          pathname: getAppPath(AppPath.Invite, {
+            workspaceInviteHash: workspace?.inviteHash,
+          }),
           searchParams: invitation.value.isPersonalInvitation
             ? {
                 inviteToken: invitation.value.appToken.value,
@@ -291,17 +306,24 @@ export class WorkspaceInvitationService {
             : {},
         });
 
-        // Todo: sender name and locale should come from workspace member not user!
         const emailData = {
           link: link.toString(),
-          workspace: { name: workspace.displayName, logo: workspace.logo },
+          workspace: {
+            name: workspace.displayName,
+            logo: workspace.logo
+              ? this.fileService.signFileUrl({
+                  url: workspace.logo,
+                  workspaceId: workspace.id,
+                })
+              : workspace.logo,
+          },
           sender: {
-            email: sender.email,
-            firstName: sender.firstName,
-            lastName: sender.lastName,
+            email: sender.userEmail,
+            firstName: sender.name.firstName,
+            lastName: sender.name.lastName,
           },
           serverUrl: this.twentyConfigService.get('SERVER_URL'),
-          locale: sender.locale as keyof typeof APP_LOCALES,
+          locale: sender.locale,
         };
 
         const emailTemplate = SendInviteLinkEmail(emailData);
@@ -310,12 +332,14 @@ export class WorkspaceInvitationService {
           plainText: true,
         });
 
-        i18n.activate(sender.locale);
+        const joinTeamMsg = msg`Join your team on Twenty`;
+        const i18n = this.i18nService.getI18nInstance(sender.locale);
+        const subject = i18n._(joinTeamMsg);
 
         await this.emailService.send({
-          from: `${sender.firstName} ${sender.lastName} (via Twenty) <${this.twentyConfigService.get('EMAIL_FROM_ADDRESS')}>`,
+          from: `${sender.name.firstName} ${sender.name.lastName} (via Twenty) <${this.twentyConfigService.get('EMAIL_FROM_ADDRESS')}>`,
           to: invitation.value.email,
-          subject: t`Join your team on Twenty`,
+          subject,
           text,
           html,
         });
@@ -325,6 +349,11 @@ export class WorkspaceInvitationService {
     await this.onboardingService.setOnboardingInviteTeamPending({
       workspaceId: workspace.id,
       value: false,
+    });
+
+    await this.onboardingService.setOnboardingBookOnboardingPending({
+      workspaceId: workspace.id,
+      value: true,
     });
 
     const result = invitationsPr.reduce<{

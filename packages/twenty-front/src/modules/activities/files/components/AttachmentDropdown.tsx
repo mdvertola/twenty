@@ -2,7 +2,7 @@ import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { GenericDropdownContentWidth } from '@/ui/layout/dropdown/constants/GenericDropdownContentWidth';
-import { useDropdown } from '@/ui/layout/dropdown/hooks/useDropdown';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
 import {
   IconDotsVertical,
   IconDownload,
@@ -16,32 +16,34 @@ type AttachmentDropdownProps = {
   onDownload: () => void;
   onDelete: () => void;
   onRename: () => void;
-  scopeKey: string;
+  attachmentId: string;
+  hasDownloadPermission: boolean;
 };
 
 export const AttachmentDropdown = ({
   onDownload,
   onDelete,
   onRename,
-  scopeKey,
+  attachmentId,
+  hasDownloadPermission,
 }: AttachmentDropdownProps) => {
-  const dropdownId = `${scopeKey}-settings-field-active-action-dropdown`;
+  const dropdownId = `${attachmentId}-attachment-dropdown`;
 
-  const { closeDropdown } = useDropdown(dropdownId);
+  const { closeDropdown } = useCloseDropdown();
 
   const handleDownload = () => {
     onDownload();
-    closeDropdown();
+    closeDropdown(dropdownId);
   };
 
   const handleDelete = () => {
     onDelete();
-    closeDropdown();
+    closeDropdown(dropdownId);
   };
 
   const handleRename = () => {
     onRename();
-    closeDropdown();
+    closeDropdown(dropdownId);
   };
 
   return (
@@ -53,11 +55,13 @@ export const AttachmentDropdown = ({
       dropdownComponents={
         <DropdownContent widthInPixels={GenericDropdownContentWidth.Narrow}>
           <DropdownMenuItemsContainer>
-            <MenuItem
-              text="Download"
-              LeftIcon={IconDownload}
-              onClick={handleDownload}
-            />
+            {hasDownloadPermission && (
+              <MenuItem
+                text="Download"
+                LeftIcon={IconDownload}
+                onClick={handleDownload}
+              />
+            )}
             <MenuItem
               text="Rename"
               LeftIcon={IconPencil}
@@ -72,7 +76,6 @@ export const AttachmentDropdown = ({
           </DropdownMenuItemsContainer>
         </DropdownContent>
       }
-      dropdownHotkeyScope={{ scope: dropdownId }}
     />
   );
 };

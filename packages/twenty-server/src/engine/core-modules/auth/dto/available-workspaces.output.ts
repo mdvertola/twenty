@@ -2,19 +2,20 @@
 
 import { Field, ObjectType } from '@nestjs/graphql';
 
-import { SSOConfiguration } from 'src/engine/core-modules/sso/types/SSOConfigurations.type';
+import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
+import { type SSOConfiguration } from 'src/engine/core-modules/sso/types/SSOConfigurations.type';
 import {
   IdentityProviderType,
   SSOIdentityProviderStatus,
 } from 'src/engine/core-modules/sso/workspace-sso-identity-provider.entity';
-import { WorkspaceUrls } from 'src/engine/core-modules/workspace/dtos/workspace-urls.dto';
+import { WorkspaceUrlsDTO } from 'src/engine/core-modules/workspace/dtos/workspace-urls.dto';
 
-@ObjectType()
-class SSOConnection {
+@ObjectType('SSOConnection')
+class SSOConnectionDTO {
   @Field(() => IdentityProviderType)
   type: SSOConfiguration['type'];
 
-  @Field(() => String)
+  @Field(() => UUIDScalarType)
   id: string;
 
   @Field(() => String)
@@ -27,20 +28,38 @@ class SSOConnection {
   status: SSOConfiguration['status'];
 }
 
-@ObjectType()
-export class AvailableWorkspaceOutput {
-  @Field(() => String)
+@ObjectType('AvailableWorkspace')
+export class AvailableWorkspace {
+  @Field(() => UUIDScalarType)
   id: string;
 
   @Field(() => String, { nullable: true })
   displayName?: string;
 
-  @Field(() => WorkspaceUrls)
-  workspaceUrls: WorkspaceUrls;
+  @Field(() => String, { nullable: true })
+  loginToken?: string;
+
+  @Field(() => String, { nullable: true })
+  personalInviteToken?: string;
+
+  @Field(() => String, { nullable: true })
+  inviteHash?: string;
+
+  @Field(() => WorkspaceUrlsDTO)
+  workspaceUrls: WorkspaceUrlsDTO;
 
   @Field(() => String, { nullable: true })
   logo?: string;
 
-  @Field(() => [SSOConnection])
-  sso: SSOConnection[];
+  @Field(() => [SSOConnectionDTO])
+  sso: SSOConnectionDTO[];
+}
+
+@ObjectType('AvailableWorkspaces')
+export class AvailableWorkspaces {
+  @Field(() => [AvailableWorkspace])
+  availableWorkspacesForSignIn: Array<AvailableWorkspace>;
+
+  @Field(() => [AvailableWorkspace])
+  availableWorkspacesForSignUp: Array<AvailableWorkspace>;
 }

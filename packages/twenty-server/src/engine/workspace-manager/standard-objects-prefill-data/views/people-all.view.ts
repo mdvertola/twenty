@@ -1,6 +1,7 @@
-import { ObjectMetadataStandardIdToIdMap } from 'src/engine/metadata-modules/object-metadata/interfaces/object-metadata-standard-id-to-id-map';
+import { msg } from '@lingui/core/macro';
 
 import { AggregateOperations } from 'src/engine/api/graphql/graphql-query-runner/constants/aggregate-operations.constant';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import {
   BASE_OBJECT_STANDARD_FIELD_IDS,
   PERSON_STANDARD_FIELD_IDS,
@@ -8,12 +9,20 @@ import {
 import { STANDARD_OBJECT_IDS } from 'src/engine/workspace-manager/workspace-sync-metadata/constants/standard-object-ids';
 
 export const peopleAllView = (
-  objectMetadataStandardIdToIdMap: ObjectMetadataStandardIdToIdMap,
+  objectMetadataItems: ObjectMetadataEntity[],
+  useCoreNaming = false,
 ) => {
+  const personObjectMetadata = objectMetadataItems.find(
+    (object) => object.standardId === STANDARD_OBJECT_IDS.person,
+  );
+
+  if (!personObjectMetadata) {
+    throw new Error('Person object metadata not found');
+  }
+
   return {
-    name: 'All People',
-    objectMetadataId:
-      objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].id,
+    name: useCoreNaming ? msg`All {objectLabelPlural}` : 'All People',
+    objectMetadataId: personObjectMetadata.id,
     type: 'table',
     key: 'INDEX',
     position: 0,
@@ -23,18 +32,18 @@ export const peopleAllView = (
     fields: [
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.name
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.name,
+          )?.id ?? '',
         position: 0,
         isVisible: true,
         size: 210,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.emails
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.emails,
+          )?.id ?? '',
         position: 1,
         isVisible: true,
         size: 150,
@@ -42,27 +51,27 @@ export const peopleAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.createdBy
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.createdBy,
+          )?.id ?? '',
         position: 2,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.company
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.company,
+          )?.id ?? '',
         position: 3,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.phones
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.phones,
+          )?.id ?? '',
         position: 4,
         isVisible: true,
         size: 150,
@@ -70,9 +79,10 @@ export const peopleAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            BASE_OBJECT_STANDARD_FIELD_IDS.createdAt
-          ],
+          personObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === BASE_OBJECT_STANDARD_FIELD_IDS.createdAt,
+          )?.id ?? '',
         position: 5,
         isVisible: true,
         size: 150,
@@ -80,36 +90,37 @@ export const peopleAllView = (
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.city
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.city,
+          )?.id ?? '',
         position: 6,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.jobTitle
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.jobTitle,
+          )?.id ?? '',
         position: 7,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.linkedinLink
-          ],
+          personObjectMetadata.fields.find(
+            (field) =>
+              field.standardId === PERSON_STANDARD_FIELD_IDS.linkedinLink,
+          )?.id ?? '',
         position: 8,
         isVisible: true,
         size: 150,
       },
       {
         fieldMetadataId:
-          objectMetadataStandardIdToIdMap[STANDARD_OBJECT_IDS.person].fields[
-            PERSON_STANDARD_FIELD_IDS.xLink
-          ],
+          personObjectMetadata.fields.find(
+            (field) => field.standardId === PERSON_STANDARD_FIELD_IDS.xLink,
+          )?.id ?? '',
         position: 9,
         isVisible: true,
         size: 150,

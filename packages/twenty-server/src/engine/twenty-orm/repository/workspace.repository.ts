@@ -1,40 +1,38 @@
-import { ObjectRecordsPermissions } from 'twenty-shared/types';
+import { type ObjectsPermissions } from 'twenty-shared/types';
 import {
-  DeepPartial,
-  DeleteResult,
-  EntitySchema,
-  EntityTarget,
-  FindManyOptions,
-  FindOneOptions,
-  FindOptionsWhere,
-  InsertResult,
-  ObjectId,
-  ObjectLiteral,
-  QueryRunner,
-  RemoveOptions,
+  type DeepPartial,
+  type DeleteResult,
+  type EntityTarget,
+  type FindManyOptions,
+  type FindOneOptions,
+  type FindOptionsWhere,
+  type InsertResult,
+  type ObjectId,
+  type ObjectLiteral,
+  type QueryRunner,
+  type RemoveOptions,
   Repository,
-  SaveOptions,
-  UpdateResult,
+  type SaveOptions,
+  type UpdateResult,
 } from 'typeorm';
-import { PickKeysByType } from 'typeorm/common/PickKeysByType';
-import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
-import { UpsertOptions } from 'typeorm/repository/UpsertOptions';
+import { type PickKeysByType } from 'typeorm/common/PickKeysByType';
+import { type QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { type UpsertOptions } from 'typeorm/repository/UpsertOptions';
 
-import { FeatureFlagMap } from 'src/engine/core-modules/feature-flag/interfaces/feature-flag-map.interface';
-import { WorkspaceInternalContext } from 'src/engine/twenty-orm/interfaces/workspace-internal-context.interface';
+import { type FeatureFlagMap } from 'src/engine/core-modules/feature-flag/interfaces/feature-flag-map.interface';
+import { type WorkspaceInternalContext } from 'src/engine/twenty-orm/interfaces/workspace-internal-context.interface';
 
-import { FeatureFlagKey } from 'src/engine/core-modules/feature-flag/enums/feature-flag-key.enum';
+import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
 import {
   PermissionsException,
   PermissionsExceptionCode,
 } from 'src/engine/metadata-modules/permissions/permissions.exception';
-import { ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
-import { getObjectMetadataMapItemByNameSingular } from 'src/engine/metadata-modules/utils/get-object-metadata-map-item-by-name-singular.util';
-import { WorkspaceEntityManager } from 'src/engine/twenty-orm/entity-manager/workspace-entity-manager';
+import { type DeepPartialWithNestedRelationFields } from 'src/engine/twenty-orm/entity-manager/types/deep-partial-entity-with-nested-relation-fields.type';
+import { type QueryDeepPartialEntityWithNestedRelationFields } from 'src/engine/twenty-orm/entity-manager/types/query-deep-partial-entity-with-nested-relation-fields.type';
+import { type WorkspaceEntityManager } from 'src/engine/twenty-orm/entity-manager/workspace-entity-manager';
 import { WorkspaceSelectQueryBuilder } from 'src/engine/twenty-orm/repository/workspace-select-query-builder';
-import { WorkspaceEntitiesStorage } from 'src/engine/twenty-orm/storage/workspace-entities.storage';
 import { formatData } from 'src/engine/twenty-orm/utils/format-data.util';
-import { formatResult } from 'src/engine/twenty-orm/utils/format-result.util';
+import { getObjectMetadataFromEntityTarget } from 'src/engine/twenty-orm/utils/get-object-metadata-from-entity-target.util';
 
 export class WorkspaceRepository<
   T extends ObjectLiteral,
@@ -42,7 +40,8 @@ export class WorkspaceRepository<
   private readonly internalContext: WorkspaceInternalContext;
   private shouldBypassPermissionChecks: boolean;
   private featureFlagMap: FeatureFlagMap;
-  private objectRecordsPermissions?: ObjectRecordsPermissions;
+  public readonly objectRecordsPermissions?: ObjectsPermissions;
+  private authContext?: AuthContext;
   declare manager: WorkspaceEntityManager;
 
   constructor(
@@ -51,8 +50,9 @@ export class WorkspaceRepository<
     manager: WorkspaceEntityManager,
     featureFlagMap: FeatureFlagMap,
     queryRunner?: QueryRunner,
-    objectRecordsPermissions?: ObjectRecordsPermissions,
+    objectRecordsPermissions?: ObjectsPermissions,
     shouldBypassPermissionChecks = false,
+    authContext?: AuthContext,
   ) {
     super(target, manager, queryRunner);
     this.internalContext = internalContext;
@@ -60,6 +60,7 @@ export class WorkspaceRepository<
     this.objectRecordsPermissions = objectRecordsPermissions;
     this.shouldBypassPermissionChecks = shouldBypassPermissionChecks;
     this.manager = manager;
+    this.authContext = authContext;
   }
 
   override createQueryBuilder<U extends T>(
@@ -70,23 +71,19 @@ export class WorkspaceRepository<
       alias,
       queryRunner,
     ) as unknown as WorkspaceSelectQueryBuilder<U>;
-    const isPermissionsV2Enabled =
-      this.featureFlagMap[FeatureFlagKey.IS_PERMISSIONS_V2_ENABLED];
 
-    if (!isPermissionsV2Enabled) {
-      return queryBuilder;
-    } else {
-      if (!this.objectRecordsPermissions) {
-        throw new Error('Object records permissions are required');
-      }
-
-      return new WorkspaceSelectQueryBuilder(
-        queryBuilder,
-        this.objectRecordsPermissions,
-        this.internalContext,
-        this.shouldBypassPermissionChecks,
-      );
+    if (!this.objectRecordsPermissions) {
+      throw new Error('Object records permissions are required');
     }
+
+    return new WorkspaceSelectQueryBuilder(
+      queryBuilder,
+      this.objectRecordsPermissions,
+      this.internalContext,
+      this.shouldBypassPermissionChecks,
+      this.authContext,
+      this.featureFlagMap,
+    );
   }
 
   /**
@@ -107,9 +104,8 @@ export class WorkspaceRepository<
       computedOptions,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findBy(
@@ -127,9 +123,8 @@ export class WorkspaceRepository<
       computedOptions.where,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findAndCount(
@@ -147,9 +142,8 @@ export class WorkspaceRepository<
       computedOptions,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findAndCountBy(
@@ -167,9 +161,8 @@ export class WorkspaceRepository<
       computedOptions.where,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findOne(
@@ -187,9 +180,8 @@ export class WorkspaceRepository<
       computedOptions,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findOneBy(
@@ -207,9 +199,8 @@ export class WorkspaceRepository<
       computedOptions.where,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findOneOrFail(
@@ -227,9 +218,8 @@ export class WorkspaceRepository<
       computedOptions,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   override async findOneByOrFail(
@@ -247,45 +237,43 @@ export class WorkspaceRepository<
       computedOptions.where,
       permissionOptions,
     );
-    const formattedResult = await this.formatResult(result);
 
-    return formattedResult;
+    return result;
   }
 
   /**
    * SAVE METHODS
    */
-  override save<U extends DeepPartial<T>>(
+  override save<U extends DeepPartialWithNestedRelationFields<T>>(
     entities: U[],
     options: SaveOptions & { reload: false },
     entityManager?: WorkspaceEntityManager,
   ): Promise<T[]>;
 
-  override save<U extends DeepPartial<T>>(
+  override save<U extends DeepPartialWithNestedRelationFields<T>>(
     entities: U[],
     options?: SaveOptions,
     entityManager?: WorkspaceEntityManager,
   ): Promise<(U & T)[]>;
 
-  override save<U extends DeepPartial<T>>(
+  override save<U extends DeepPartialWithNestedRelationFields<T>>(
     entity: U,
     options: SaveOptions & { reload: false },
     entityManager?: WorkspaceEntityManager,
   ): Promise<T>;
 
-  override save<U extends DeepPartial<T>>(
+  override save<U extends DeepPartialWithNestedRelationFields<T>>(
     entity: U,
     options?: SaveOptions,
     entityManager?: WorkspaceEntityManager,
   ): Promise<U & T>;
 
-  override async save<U extends DeepPartial<T>>(
+  override async save<U extends DeepPartialWithNestedRelationFields<T>>(
     entityOrEntities: U | U[],
     options?: SaveOptions | (SaveOptions & { reload: false }),
     entityManager?: WorkspaceEntityManager,
   ): Promise<U | U[]> {
     const manager = entityManager || this.manager;
-    const formattedEntityOrEntities = await this.formatData(entityOrEntities);
     let result: U | U[];
 
     const permissionOptions = {
@@ -294,25 +282,23 @@ export class WorkspaceRepository<
     };
 
     // Needed because save method has multiple signature, otherwise we will need to do a type assertion
-    if (Array.isArray(formattedEntityOrEntities)) {
+    if (Array.isArray(entityOrEntities)) {
       result = await manager.save(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     } else {
       result = await manager.save(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     }
 
-    const formattedResult = await this.formatResult(result);
-
-    return formattedResult;
+    return result;
   }
 
   /**
@@ -336,21 +322,18 @@ export class WorkspaceRepository<
     entityManager?: WorkspaceEntityManager,
   ): Promise<T | T[]> {
     const manager = entityManager || this.manager;
-    const formattedEntityOrEntities = await this.formatData(entityOrEntities);
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
     const result = await manager.remove(
       this.target,
-      formattedEntityOrEntities,
+      entityOrEntities,
       options,
       permissionOptions,
     );
 
-    const formattedResult = await this.formatResult(result);
-
-    return formattedResult;
+    return result;
   }
 
   override async delete(
@@ -365,6 +348,7 @@ export class WorkspaceRepository<
       | ObjectId[]
       | FindOptionsWhere<T>,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[] | '*',
   ): Promise<DeleteResult> {
     const manager = entityManager || this.manager;
 
@@ -377,7 +361,12 @@ export class WorkspaceRepository<
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
 
-    return manager.delete(this.target, criteria, permissionOptions);
+    return manager.delete(
+      this.target,
+      criteria,
+      permissionOptions,
+      selectedColumns,
+    );
   }
 
   override softRemove<U extends DeepPartial<T>>(
@@ -410,7 +399,6 @@ export class WorkspaceRepository<
     entityManager?: WorkspaceEntityManager,
   ): Promise<U | U[]> {
     const manager = entityManager || this.manager;
-    const formattedEntityOrEntities = await this.formatData(entityOrEntities);
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       objectRecordsPermissions: this.objectRecordsPermissions,
@@ -418,25 +406,23 @@ export class WorkspaceRepository<
     let result: U | U[];
 
     // Needed because save method has multiple signature, otherwise we will need to do a type assertion
-    if (Array.isArray(formattedEntityOrEntities)) {
+    if (Array.isArray(entityOrEntities)) {
       result = await manager.softRemove(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     } else {
       result = await manager.softRemove(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     }
 
-    const formattedResult = await this.formatResult(result);
-
-    return formattedResult;
+    return result;
   }
 
   override async softDelete(
@@ -451,6 +437,7 @@ export class WorkspaceRepository<
       | ObjectId[]
       | FindOptionsWhere<T>,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
 
@@ -463,7 +450,12 @@ export class WorkspaceRepository<
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
 
-    return manager.softDelete(this.target, criteria, permissionOptions);
+    return manager.softDelete(
+      this.target,
+      criteria,
+      permissionOptions,
+      selectedColumns,
+    );
   }
 
   /**
@@ -499,7 +491,6 @@ export class WorkspaceRepository<
     entityManager?: WorkspaceEntityManager,
   ): Promise<U | U[]> {
     const manager = entityManager || this.manager;
-    const formattedEntityOrEntities = await this.formatData(entityOrEntities);
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       objectRecordsPermissions: this.objectRecordsPermissions,
@@ -507,25 +498,23 @@ export class WorkspaceRepository<
     let result: U | U[];
 
     // Needed because save method has multiple signature, otherwise we will need to do a type assertion
-    if (Array.isArray(formattedEntityOrEntities)) {
+    if (Array.isArray(entityOrEntities)) {
       result = await manager.recover(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     } else {
       result = await manager.recover(
         this.target,
-        formattedEntityOrEntities,
+        entityOrEntities,
         options,
         permissionOptions,
       );
     }
 
-    const formattedResult = await this.formatResult(result);
-
-    return formattedResult;
+    return result;
   }
 
   override async restore(
@@ -540,6 +529,7 @@ export class WorkspaceRepository<
       | ObjectId[]
       | FindOptionsWhere<T>,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
 
@@ -552,35 +542,38 @@ export class WorkspaceRepository<
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
 
-    return manager.restore(this.target, criteria, permissionOptions);
+    return manager.restore(
+      this.target,
+      criteria,
+      permissionOptions,
+      selectedColumns,
+    );
   }
 
   /**
    * INSERT METHODS
    */
   override async insert(
-    entity: QueryDeepPartialEntity<T> | QueryDeepPartialEntity<T>[],
+    entity:
+      | QueryDeepPartialEntityWithNestedRelationFields<T>
+      | QueryDeepPartialEntityWithNestedRelationFields<T>[],
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<InsertResult> {
     const manager = entityManager || this.manager;
 
-    const formattedEntity = await this.formatData(entity);
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
-    const result = await manager.insert(
-      this.target,
-      formattedEntity,
-      permissionOptions,
-    );
-    const formattedResult = await this.formatResult(result.generatedMaps);
 
-    return {
-      raw: result.raw,
-      generatedMaps: formattedResult,
-      identifiers: result.identifiers,
-    };
+    return manager.insert(
+      this.target,
+      entity,
+      selectedColumns,
+      permissionOptions,
+      this.authContext,
+    );
   }
 
   /**
@@ -599,6 +592,7 @@ export class WorkspaceRepository<
       | FindOptionsWhere<T>,
     partialEntity: QueryDeepPartialEntity<T>,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
 
@@ -616,17 +610,45 @@ export class WorkspaceRepository<
       criteria,
       partialEntity,
       permissionOptions,
+      selectedColumns,
     );
   }
 
-  override async upsert(
-    entityOrEntities: QueryDeepPartialEntity<T> | QueryDeepPartialEntity<T>[],
-    conflictPathsOrOptions: string[] | UpsertOptions<T>,
+  // Experimental method to allow batch update and batch event emission
+  async updateMany(
+    inputs: {
+      criteria: string;
+      partialEntity: QueryDeepPartialEntity<T>;
+    }[],
     entityManager?: WorkspaceEntityManager,
-  ): Promise<InsertResult> {
+    selectedColumns?: string[],
+  ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
 
-    const formattedEntityOrEntities = await this.formatData(entityOrEntities);
+    const permissionOptions = {
+      shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
+      objectRecordsPermissions: this.objectRecordsPermissions,
+    };
+
+    const results = await manager.updateMany(
+      this.target,
+      inputs,
+      permissionOptions,
+      selectedColumns,
+    );
+
+    return results;
+  }
+
+  override async upsert(
+    entityOrEntities:
+      | QueryDeepPartialEntityWithNestedRelationFields<T>
+      | QueryDeepPartialEntityWithNestedRelationFields<T>[],
+    conflictPathsOrOptions: string[] | UpsertOptions<T>,
+    entityManager?: WorkspaceEntityManager,
+    selectedColumns: string[] = [],
+  ): Promise<InsertResult> {
+    const manager = entityManager || this.manager;
 
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
@@ -635,16 +657,15 @@ export class WorkspaceRepository<
 
     const result = await manager.upsert(
       this.target,
-      formattedEntityOrEntities,
+      entityOrEntities,
       conflictPathsOrOptions,
       permissionOptions,
+      selectedColumns,
     );
-
-    const formattedResult = await this.formatResult(result.generatedMaps);
 
     return {
       raw: result.raw,
-      generatedMaps: formattedResult,
+      generatedMaps: result.generatedMaps,
       identifiers: result.identifiers,
     };
   }
@@ -815,6 +836,7 @@ export class WorkspaceRepository<
     propertyPath: string,
     value: number | string,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
     const computedConditions = await this.transformOptions({
@@ -832,6 +854,7 @@ export class WorkspaceRepository<
       propertyPath,
       value,
       permissionOptions,
+      selectedColumns,
     );
   }
 
@@ -840,6 +863,7 @@ export class WorkspaceRepository<
     propertyPath: string,
     value: number | string,
     entityManager?: WorkspaceEntityManager,
+    selectedColumns?: string[],
   ): Promise<UpdateResult> {
     const manager = entityManager || this.manager;
     const computedConditions = await this.transformOptions({
@@ -857,6 +881,7 @@ export class WorkspaceRepository<
       propertyPath,
       value,
       permissionOptions,
+      selectedColumns,
     );
   }
 
@@ -868,13 +893,12 @@ export class WorkspaceRepository<
     entityManager?: WorkspaceEntityManager,
   ): Promise<T | undefined> {
     const manager = entityManager || this.manager;
-    const formattedEntityLike = await this.formatData(entityLike);
     const permissionOptions = {
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       objectRecordsPermissions: this.objectRecordsPermissions,
     };
 
-    return manager.preload(this.target, formattedEntityLike, permissionOptions);
+    return manager.preload(this.target, entityLike, permissionOptions);
   }
 
   /**
@@ -920,36 +944,7 @@ export class WorkspaceRepository<
    * PRIVATE METHODS
    */
   private async getObjectMetadataFromTarget() {
-    const objectMetadataName =
-      typeof this.target === 'string'
-        ? this.target
-        : WorkspaceEntitiesStorage.getObjectMetadataName(
-            this.internalContext.workspaceId,
-            this.target as EntitySchema,
-          );
-
-    if (!objectMetadataName) {
-      throw new Error('Object metadata name is missing');
-    }
-
-    const objectMetadata = getObjectMetadataMapItemByNameSingular(
-      this.internalContext.objectMetadataMaps,
-      objectMetadataName,
-    );
-
-    if (!objectMetadata) {
-      throw new Error(
-        `Object metadata for object "${objectMetadataName}" is missing ` +
-          `in workspace "${this.internalContext.workspaceId}" ` +
-          `with object metadata collection length: ${
-            Object.keys(
-              this.internalContext.objectMetadataMaps.idByNameSingular,
-            ).length
-          }`,
-      );
-    }
-
-    return objectMetadata;
+    return getObjectMetadataFromEntityTarget(this.target, this.internalContext);
   }
 
   private async transformOptions<
@@ -974,16 +969,5 @@ export class WorkspaceRepository<
     const objectMetadata = await this.getObjectMetadataFromTarget();
 
     return formatData(data, objectMetadata) as T;
-  }
-
-  async formatResult<T>(
-    data: T,
-    objectMetadata?: ObjectMetadataItemWithFieldMaps,
-  ): Promise<T> {
-    objectMetadata ??= await this.getObjectMetadataFromTarget();
-
-    const objectMetadataMaps = this.internalContext.objectMetadataMaps;
-
-    return formatResult(data, objectMetadata, objectMetadataMaps) as T;
   }
 }

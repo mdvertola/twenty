@@ -6,15 +6,18 @@ import {
 } from 'test/integration/metadata/suites/object-metadata/constants/test-object-names.constant';
 import { createOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/create-one-object-metadata.util';
 import { deleteOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/delete-one-object-metadata.util';
+import { updateOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/update-one-object-metadata.util';
+import { extractRecordIdsAndDatesAsExpectAny } from 'test/utils/extract-record-ids-and-dates-as-expect-any';
 import { FieldMetadataType } from 'twenty-shared/types';
 
 describe('updateOne', () => {
-  describe('FieldMetadataService name/label sync', () => {
+  describe('successful fieldMetadataService name/label sync', () => {
     let listingObjectId = '';
     let testFieldId = '';
 
     beforeEach(async () => {
       const { data } = await createOneObjectMetadata({
+        expectToFail: false,
         input: {
           labelSingular: LISTING_NAME_SINGULAR,
           labelPlural: LISTING_NAME_PLURAL,
@@ -28,6 +31,7 @@ describe('updateOne', () => {
       listingObjectId = data.createOneObject.id;
 
       const { data: createdFieldMetadata } = await createOneFieldMetadata({
+        expectToFail: false,
         input: {
           objectMetadataId: listingObjectId,
           type: FieldMetadataType.TEXT,
@@ -40,7 +44,17 @@ describe('updateOne', () => {
       testFieldId = createdFieldMetadata.createOneField.id;
     });
     afterEach(async () => {
+      await updateOneObjectMetadata({
+        expectToFail: false,
+        input: {
+          idToUpdate: listingObjectId,
+          updatePayload: {
+            isActive: false,
+          },
+        },
+      });
       await deleteOneObjectMetadata({
+        expectToFail: false,
         input: { idToDelete: listingObjectId },
       });
     });
@@ -90,6 +104,55 @@ describe('updateOne', () => {
       // Assert
       expect(data.updateOneField.name).toBe('differentName');
     });
+  });
+
+  describe('failing update', () => {
+    let listingObjectId = '';
+    let testFieldId = '';
+
+    beforeAll(async () => {
+      const { data } = await createOneObjectMetadata({
+        expectToFail: false,
+        input: {
+          labelSingular: LISTING_NAME_SINGULAR,
+          labelPlural: LISTING_NAME_PLURAL,
+          nameSingular: LISTING_NAME_SINGULAR,
+          namePlural: LISTING_NAME_PLURAL,
+          icon: 'IconBuildingSkyscraper',
+          isLabelSyncedWithName: true,
+        },
+      });
+
+      listingObjectId = data.createOneObject.id;
+
+      const { data: createdFieldMetadata } = await createOneFieldMetadata({
+        expectToFail: false,
+        input: {
+          objectMetadataId: listingObjectId,
+          type: FieldMetadataType.TEXT,
+          name: 'testName',
+          label: 'Test name',
+          isLabelSyncedWithName: true,
+        },
+      });
+
+      testFieldId = createdFieldMetadata.createOneField.id;
+    });
+    afterAll(async () => {
+      await updateOneObjectMetadata({
+        expectToFail: false,
+        input: {
+          idToUpdate: listingObjectId,
+          updatePayload: {
+            isActive: false,
+          },
+        },
+      });
+      await deleteOneObjectMetadata({
+        expectToFail: false,
+        input: { idToDelete: listingObjectId },
+      });
+    });
 
     it('should not update a field name if it is not synced correctly with label and labelSync is true', async () => {
       // Arrange
@@ -110,82 +173,33 @@ describe('updateOne', () => {
         expectToFail: true,
       });
 
-      // Assert
-      expect(errors[0].message).toBe(
-        'Name is not synced with label. Expected name: "testName", got newName',
+      expect(errors).toMatchSnapshot(
+        extractRecordIdsAndDatesAsExpectAny(errors),
       );
     });
-  });
 
-  describe('FieldMetadataService Enum Default Value Validation', () => {
-    let createdObjectMetadataId: string;
-
-    beforeEach(async () => {
-      const { data: listingObjectMetadata } = await createOneObjectMetadata({
+    it('should throw if the field name is not available because of other field with the same name', async () => {
+      await createOneFieldMetadata({
+        expectToFail: false,
         input: {
-          labelSingular: LISTING_NAME_SINGULAR,
-          labelPlural: LISTING_NAME_PLURAL,
-          nameSingular: LISTING_NAME_SINGULAR,
-          namePlural: LISTING_NAME_PLURAL,
-          icon: 'IconBuildingSkyscraper',
-          isLabelSyncedWithName: true,
-        },
-      });
-
-      createdObjectMetadataId = listingObjectMetadata.createOneObject.id;
-    });
-
-    afterEach(async () => {
-      await deleteOneObjectMetadata({
-        input: { idToDelete: createdObjectMetadataId },
-      });
-    });
-
-    it('should throw an error if the default value is not in the options', async () => {
-      const { data: createdFieldMetadata } = await createOneFieldMetadata({
-        input: {
-          objectMetadataId: createdObjectMetadataId,
-          type: FieldMetadataType.SELECT,
-          name: 'testName',
+          objectMetadataId: listingObjectId,
+          type: FieldMetadataType.TEXT,
+          name: 'otherTestName',
           label: 'Test name',
-          isLabelSyncedWithName: true,
-          options: [
-            {
-              label: 'Option 1',
-              value: 'OPTION_1',
-              color: 'green',
-              position: 1,
-            },
-          ],
         },
       });
 
       const { errors } = await updateOneFieldMetadata({
-        input: {
-          idToUpdate: createdFieldMetadata.createOneField.id,
-          updatePayload: {
-            defaultValue: "'OPTION_2'",
-          },
-        },
-        gqlFields: `
-          id
-          name
-          label
-          isLabelSyncedWithName
-        `,
         expectToFail: true,
+        input: {
+          idToUpdate: testFieldId,
+          updatePayload: { name: 'otherTestName' },
+        },
       });
 
-      expect(errors).toMatchInlineSnapshot(`
-[
-  {
-    "extensions": {
-      "code": "BAD_USER_INPUT",
-    },
-    "message": "Default value "'OPTION_2'" must be one of the option values",
-  },
-]
-`);
+      expect(errors).toMatchSnapshot(
+        extractRecordIdsAndDatesAsExpectAny(errors),
+      );
     });
   });
 });

@@ -12,10 +12,6 @@ rawDataSource
       'create schema "public"',
     );
     await performQuery(
-      'CREATE SCHEMA IF NOT EXISTS "metadata"',
-      'create schema "metadata"',
-    );
-    await performQuery(
       'CREATE SCHEMA IF NOT EXISTS "core"',
       'create schema "core"',
     );
@@ -23,6 +19,22 @@ rawDataSource
     await performQuery(
       'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"',
       'create extension "uuid-ossp"',
+    );
+
+    await performQuery(
+      'CREATE EXTENSION IF NOT EXISTS "unaccent"',
+      'create extension "unaccent"',
+    );
+
+    await performQuery(
+      `CREATE OR REPLACE FUNCTION public.unaccent_immutable(input text)
+    RETURNS text
+    LANGUAGE sql
+    IMMUTABLE
+AS $$
+SELECT public.unaccent('public.unaccent'::regdictionary, input)
+$$;`,
+      'create immutable unaccent wrapper function',
     );
 
     // We paused the work on FDW

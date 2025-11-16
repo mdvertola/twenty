@@ -1,14 +1,16 @@
-import { Meta } from '@storybook/react';
+import { type Meta } from '@storybook/react';
 
 import { mockRsiValues } from '@/spreadsheet-import/__mocks__/mockRsiValues';
 import { ReactSpreadsheetImportContextProvider } from '@/spreadsheet-import/components/ReactSpreadsheetImportContextProvider';
 import { SpreadSheetImportModalWrapper } from '@/spreadsheet-import/components/SpreadSheetImportModalWrapper';
 import { UploadStep } from '@/spreadsheet-import/steps/components/UploadStep/UploadStep';
 import { SpreadsheetImportStepType } from '@/spreadsheet-import/steps/types/SpreadsheetImportStepType';
-import { DialogManagerScope } from '@/ui/feedback/dialog-manager/scopes/DialogManagerScope';
+import { DialogComponentInstanceContext } from '@/ui/feedback/dialog-manager/contexts/DialogComponentInstanceContext';
 import { isModalOpenedComponentState } from '@/ui/layout/modal/states/isModalOpenedComponentState';
 import { RecoilRoot } from 'recoil';
+import { ContextStoreDecorator } from '~/testing/decorators/ContextStoreDecorator';
 import { I18nFrontDecorator } from '~/testing/decorators/I18nFrontDecorator';
+import { ObjectMetadataItemsDecorator } from '~/testing/decorators/ObjectMetadataItemsDecorator';
 import { SnackBarDecorator } from '~/testing/decorators/SnackBarDecorator';
 
 const meta: Meta<typeof UploadStep> = {
@@ -18,6 +20,8 @@ const meta: Meta<typeof UploadStep> = {
     layout: 'fullscreen',
   },
   decorators: [
+    ObjectMetadataItemsDecorator,
+    ContextStoreDecorator,
     (Story) => (
       <RecoilRoot
         initializeState={({ set }) => {
@@ -40,7 +44,9 @@ const meta: Meta<typeof UploadStep> = {
 export default meta;
 
 export const Default = () => (
-  <DialogManagerScope dialogManagerScopeId="dialog-manager">
+  <DialogComponentInstanceContext.Provider
+    value={{ instanceId: 'dialog-manager' }}
+  >
     <ReactSpreadsheetImportContextProvider values={mockRsiValues}>
       <SpreadSheetImportModalWrapper modalId="upload-step" onClose={() => null}>
         <UploadStep
@@ -53,5 +59,5 @@ export const Default = () => (
         />
       </SpreadSheetImportModalWrapper>
     </ReactSpreadsheetImportContextProvider>
-  </DialogManagerScope>
+  </DialogComponentInstanceContext.Provider>
 );

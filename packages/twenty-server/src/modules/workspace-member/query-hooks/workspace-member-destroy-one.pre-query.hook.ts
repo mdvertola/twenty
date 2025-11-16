@@ -1,33 +1,31 @@
-import { WorkspacePreQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
-import { DeleteOneResolverArgs } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
+import { assertIsDefinedOrThrow } from 'twenty-shared/utils';
+
+import { type WorkspacePreQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
+import { type DeleteOneResolverArgs } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
 
 import { WorkspaceQueryHook } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/decorators/workspace-query-hook.decorator';
-import { AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
-import { WorkspaceMemberPreQueryHookService } from 'src/modules/workspace-member/query-hooks/workspace-member-pre-query-hook.service';
+import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
+import {
+  PermissionsException,
+  PermissionsExceptionCode,
+  PermissionsExceptionMessage,
+} from 'src/engine/metadata-modules/permissions/permissions.exception';
+import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
 
 @WorkspaceQueryHook(`workspaceMember.destroyOne`)
 export class WorkspaceMemberDestroyOnePreQueryHook
   implements WorkspacePreQueryHookInstance
 {
-  constructor(
-    private readonly workspaceMemberPreQueryHookService: WorkspaceMemberPreQueryHookService,
-  ) {}
+  constructor() {}
 
-  async execute(
-    authContext: AuthContext,
-    objectName: string,
-    payload: DeleteOneResolverArgs,
-  ): Promise<DeleteOneResolverArgs> {
-    await this.workspaceMemberPreQueryHookService.validateWorkspaceMemberUpdatePermissionOrThrow(
-      {
-        userWorkspaceId: authContext.userWorkspaceId,
-        targettedWorkspaceMemberId: payload.id,
-        workspaceId: authContext.workspace.id,
-        apiKey: authContext.apiKey,
-        workspaceMemberId: authContext.workspaceMemberId,
-      },
+  async execute(authContext: AuthContext): Promise<DeleteOneResolverArgs> {
+    const workspace = authContext.workspace;
+
+    assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
+    throw new PermissionsException(
+      PermissionsExceptionMessage.PERMISSION_DENIED,
+      PermissionsExceptionCode.PERMISSION_DENIED,
     );
-
-    return payload;
   }
 }

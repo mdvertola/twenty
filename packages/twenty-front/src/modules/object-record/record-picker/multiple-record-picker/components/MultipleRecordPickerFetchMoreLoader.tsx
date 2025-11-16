@@ -1,21 +1,26 @@
 import { useMultipleRecordPickerPerformSearch } from '@/object-record/record-picker/multiple-record-picker/hooks/useMultipleRecordPickerPerformSearch';
 import { MultipleRecordPickerComponentInstanceContext } from '@/object-record/record-picker/multiple-record-picker/states/contexts/MultipleRecordPickerComponentInstanceContext';
+
+import { multipleRecordPickerIsFetchingMoreComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerIsFetchingMoreComponentState';
 import { multipleRecordPickerIsLoadingComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerIsLoadingComponentState';
+
 import { multipleRecordPickerPaginationState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerPaginationState';
 import { multipleRecordPickerSearchFilterComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerSearchFilterComponentState';
+import { multipleRecordPickerShouldShowInitialLoadingComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerShouldShowInitialLoadingComponentState';
+import { multipleRecordPickerShouldShowSkeletonComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerShouldShowSkeletonComponentState';
 import { multipleRecordPickerPaginationSelector } from '@/object-record/record-picker/multiple-record-picker/states/selectors/multipleRecordPickerPaginationSelector';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentState';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import styled from '@emotion/styled';
 import { useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useRecoilCallback } from 'recoil';
-import { GRAY_SCALE } from 'twenty-ui/theme';
 
 const StyledText = styled.div`
   align-items: center;
   box-shadow: none;
-  color: ${GRAY_SCALE.gray40};
+  color: ${({ theme }) => theme.grayScale.gray9};
   display: flex;
   height: 32px;
   margin-left: ${({ theme }) => theme.spacing(8)};
@@ -23,27 +28,40 @@ const StyledText = styled.div`
 `;
 
 const StyledIntersectionObserver = styled.div`
-  height: 1px;
+  height: 0px;
 `;
 
 export const MultipleRecordPickerFetchMoreLoader = () => {
+  const [
+    multipleRecordPickerIsFetchingMore,
+    setMultipleRecordPickerIsFetchingMore,
+  ] = useRecoilComponentState(multipleRecordPickerIsFetchingMoreComponentState);
+
   const componentInstanceId = useAvailableComponentInstanceIdOrThrow(
     MultipleRecordPickerComponentInstanceContext,
   );
 
-  const paginationState = useRecoilComponentValueV2(
+  const paginationState = useRecoilComponentValue(
     multipleRecordPickerPaginationSelector,
     componentInstanceId,
   );
 
-  const isLoading = useRecoilComponentValueV2(
+  const isLoading = useRecoilComponentValue(
     multipleRecordPickerIsLoadingComponentState,
     componentInstanceId,
   );
 
-  const searchFilter = useRecoilComponentValueV2(
+  const searchFilter = useRecoilComponentValue(
     multipleRecordPickerSearchFilterComponentState,
     componentInstanceId,
+  );
+
+  const multipleRecordPickerShouldShowInitialLoading = useRecoilComponentValue(
+    multipleRecordPickerShouldShowInitialLoadingComponentState,
+  );
+
+  const multipleRecordPickerShouldShowSkeleton = useRecoilComponentValue(
+    multipleRecordPickerShouldShowSkeletonComponentState,
   );
 
   const { performSearch } = useMultipleRecordPickerPerformSearch();
@@ -63,7 +81,7 @@ export const MultipleRecordPickerFetchMoreLoader = () => {
           return;
         }
 
-        performSearch({
+        await performSearch({
           multipleRecordPickerInstanceId: componentInstanceId,
           forceSearchFilter: searchFilter,
           loadMore: true,
@@ -74,23 +92,34 @@ export const MultipleRecordPickerFetchMoreLoader = () => {
 
   const { ref } = useInView({
     onChange: useCallback(
-      (inView: boolean) => {
+      async (inView: boolean) => {
         if (inView) {
-          fetchMore();
+          setMultipleRecordPickerIsFetchingMore(true);
+
+          await fetchMore();
+
+          setMultipleRecordPickerIsFetchingMore(false);
         }
       },
-      [fetchMore],
+      [fetchMore, setMultipleRecordPickerIsFetchingMore],
     ),
   });
 
-  if (!paginationState.hasNextPage) {
+  if (
+    !paginationState.hasNextPage ||
+    multipleRecordPickerShouldShowInitialLoading ||
+    multipleRecordPickerShouldShowSkeleton ||
+    (isLoading && !multipleRecordPickerIsFetchingMore)
+  ) {
     return null;
   }
 
   return (
-    <div>
+    <>
       <StyledIntersectionObserver ref={ref} />
-      {isLoading && <StyledText>Loading more...</StyledText>}
-    </div>
+      {multipleRecordPickerIsFetchingMore && (
+        <StyledText>Loading more...</StyledText>
+      )}
+    </>
   );
 };

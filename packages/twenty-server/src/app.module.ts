@@ -1,6 +1,6 @@
 import {
-  DynamicModule,
-  MiddlewareConsumer,
+  type DynamicModule,
+  type MiddlewareConsumer,
   Module,
   RequestMethod,
 } from '@nestjs/common';
@@ -11,14 +11,17 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-import { YogaDriver, YogaDriverConfig } from '@graphql-yoga/nestjs';
+import { YogaDriver, type YogaDriverConfig } from '@graphql-yoga/nestjs';
 import { SentryModule } from '@sentry/nestjs/setup';
 
 import { CoreGraphQLApiModule } from 'src/engine/api/graphql/core-graphql-api.module';
 import { GraphQLConfigModule } from 'src/engine/api/graphql/graphql-config/graphql-config.module';
 import { GraphQLConfigService } from 'src/engine/api/graphql/graphql-config/graphql-config.service';
 import { MetadataGraphQLApiModule } from 'src/engine/api/graphql/metadata-graphql-api.module';
+import { McpModule } from 'src/engine/api/mcp/mcp.module';
 import { RestApiModule } from 'src/engine/api/rest/rest-api.module';
+import { MetricsModule } from 'src/engine/core-modules/metrics/metrics.module';
+import { DataloaderModule } from 'src/engine/dataloaders/dataloader.module';
 import { DataSourceModule } from 'src/engine/metadata-modules/data-source/data-source.module';
 import { WorkspaceMetadataCacheModule } from 'src/engine/metadata-modules/workspace-metadata-cache/workspace-metadata-cache.module';
 import { GraphQLHydrateRequestFromTokenMiddleware } from 'src/engine/middlewares/graphql-hydrate-request-from-token.middleware';
@@ -50,7 +53,7 @@ const MIGRATED_REST_METHODS = [
     }),
     GraphQLModule.forRootAsync<YogaDriverConfig>({
       driver: YogaDriver,
-      imports: [GraphQLConfigModule],
+      imports: [GraphQLConfigModule, MetricsModule, DataloaderModule],
       useClass: GraphQLConfigService,
     }),
     TwentyORMModule,
@@ -65,6 +68,7 @@ const MIGRATED_REST_METHODS = [
     CoreGraphQLApiModule,
     MetadataGraphQLApiModule,
     RestApiModule,
+    McpModule,
     DataSourceModule,
     MiddlewareModule,
     WorkspaceMetadataCacheModule,
@@ -78,6 +82,15 @@ export class AppModule {
   private static getConditionalModules(): DynamicModule[] {
     const modules: DynamicModule[] = [];
     const frontPath = join(__dirname, '..', 'front');
+
+    // NestJS DevTools - can be useful for debugging and profiling
+    /* if (process.env.NODE_ENV === NodeEnvironment.DEVELOPMENT) {
+      modules.push(
+        DevtoolsModule.register({
+          http: true,
+        }),
+      );
+    } */
 
     if (existsSync(frontPath)) {
       modules.push(

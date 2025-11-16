@@ -1,10 +1,11 @@
-import { RecordGqlOperationGqlRecordFields } from '@/object-record/graphql/types/RecordGqlOperationGqlRecordFields';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
-import { FieldMetadataType } from '~/generated-metadata/graphql';
+import { type RecordGqlOperationGqlRecordFields } from '@/object-record/graphql/types/RecordGqlOperationGqlRecordFields';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { isUndefinedOrNull } from '~/utils/isUndefinedOrNull';
 
+import { isFieldMorphRelation } from '@/object-record/record-field/ui/types/guards/isFieldMorphRelation';
+import { isFieldRelation } from '@/object-record/record-field/ui/types/guards/isFieldRelation';
 import { isDefined } from 'twenty-shared/utils';
-import { FieldMetadataItem } from '../types/FieldMetadataItem';
+import { type FieldMetadataItem } from '../types/FieldMetadataItem';
 
 export const shouldFieldBeQueried = ({
   gqlField,
@@ -12,14 +13,23 @@ export const shouldFieldBeQueried = ({
   recordGqlFields,
 }: {
   gqlField: string;
-  fieldMetadata: Pick<FieldMetadataItem, 'name' | 'type'>;
+  fieldMetadata: Pick<FieldMetadataItem, 'name' | 'type' | 'settings'>;
   objectRecord?: ObjectRecord;
   recordGqlFields?: RecordGqlOperationGqlRecordFields;
 }): any => {
+  const isJoinColumn: boolean =
+    (isFieldRelation(fieldMetadata) || isFieldMorphRelation(fieldMetadata)) &&
+    fieldMetadata.settings.joinColumnName === gqlField;
+
   if (
     isUndefinedOrNull(recordGqlFields) &&
-    fieldMetadata.type !== FieldMetadataType.RELATION
+    !isFieldRelation(fieldMetadata) &&
+    !isFieldMorphRelation(fieldMetadata)
   ) {
+    return true;
+  }
+
+  if (isUndefinedOrNull(recordGqlFields) && isJoinColumn) {
     return true;
   }
 

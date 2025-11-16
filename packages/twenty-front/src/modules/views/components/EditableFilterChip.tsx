@@ -1,12 +1,11 @@
-import { useFieldMetadataItemById } from '@/object-metadata/hooks/useFieldMetadataItemById';
+import { useFieldMetadataItemByIdOrThrow } from '@/object-metadata/hooks/useFieldMetadataItemByIdOrThrow';
 import { getCompositeSubFieldLabel } from '@/object-record/object-filter-dropdown/utils/getCompositeSubFieldLabel';
-import { getOperandLabelShort } from '@/object-record/object-filter-dropdown/utils/getOperandLabel';
 import { isCompositeFieldType } from '@/object-record/object-filter-dropdown/utils/isCompositeFieldType';
-import { RecordFilter } from '@/object-record/record-filter/types/RecordFilter';
-import { isEmptinessOperand } from '@/object-record/record-filter/utils/isEmptinessOperand';
-import { isRecordFilterConsideredEmpty } from '@/object-record/record-filter/utils/isRecordFilterConsideredEmpty';
+import { type RecordFilter } from '@/object-record/record-filter/types/RecordFilter';
 import { isValidSubFieldName } from '@/settings/data-model/utils/isValidSubFieldName';
 import { SortOrFilterChip } from '@/views/components/SortOrFilterChip';
+import { useGetRecordFilterChipLabelValue } from '@/views/hooks/useGetRecordFilterChipLabelValue';
+
 import { isNonEmptyString } from '@sniptt/guards';
 import { useIcons } from 'twenty-ui/display';
 
@@ -23,14 +22,13 @@ export const EditableFilterChip = ({
 }: EditableFilterChipProps) => {
   const { getIcon } = useIcons();
 
-  const { fieldMetadataItem } = useFieldMetadataItemById(
+  const { fieldMetadataItem } = useFieldMetadataItemByIdOrThrow(
     recordFilter.fieldMetadataId,
   );
 
-  const FieldMetadataItemIcon = getIcon(fieldMetadataItem.icon);
+  const { getRecordFilterChipLabelValue } = useGetRecordFilterChipLabelValue();
 
-  const operandLabelShort = getOperandLabelShort(recordFilter.operand);
-  const operandIsEmptiness = isEmptinessOperand(recordFilter.operand);
+  const FieldMetadataItemIcon = getIcon(fieldMetadataItem.icon);
 
   const recordFilterSubFieldName = recordFilter.subFieldName;
 
@@ -48,10 +46,10 @@ export const EditableFilterChip = ({
     ? `${recordFilter.label} / ${subFieldLabel}`
     : recordFilter.label;
 
-  const recordFilterIsEmpty = isRecordFilterConsideredEmpty(recordFilter);
-
   const labelKey = `${fieldNameLabel}`;
-  const labelValue = `${!operandIsEmptiness && !recordFilterIsEmpty ? operandLabelShort : operandIsEmptiness ? ` ${operandLabelShort}` : ''} ${operandIsEmptiness ? '' : recordFilter.displayValue}`;
+  const labelValue = getRecordFilterChipLabelValue({
+    recordFilter,
+  });
 
   return (
     <SortOrFilterChip

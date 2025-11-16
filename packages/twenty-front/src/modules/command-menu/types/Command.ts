@@ -1,4 +1,4 @@
-import { IconComponent } from 'twenty-ui/display';
+import { type IconComponent } from 'twenty-ui/display';
 export enum CommandType {
   Navigate = 'Navigate',
   Create = 'Create',
@@ -23,5 +23,4 @@ export type Command = {
   Icon?: IconComponent;
   hotKeys?: string[];
   onCommandClick?: () => void;
-  shouldCloseCommandMenuOnClick?: boolean;
 };

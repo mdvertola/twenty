@@ -1,22 +1,23 @@
-import { FormFieldInputContainer } from '@/object-record/record-field/form-types/components/FormFieldInputContainer';
-import { FormFieldInputInnerContainer } from '@/object-record/record-field/form-types/components/FormFieldInputInnerContainer';
-import { FormFieldInputRowContainer } from '@/object-record/record-field/form-types/components/FormFieldInputRowContainer';
+import { SidePanelHeader } from '@/command-menu/components/SidePanelHeader';
+import { FormFieldInputContainer } from '@/object-record/record-field/ui/form-types/components/FormFieldInputContainer';
+import { FormFieldInputInnerContainer } from '@/object-record/record-field/ui/form-types/components/FormFieldInputInnerContainer';
+import { FormFieldInputRowContainer } from '@/object-record/record-field/ui/form-types/components/FormFieldInputRowContainer';
+import { FormFieldPlaceholder } from '@/object-record/record-field/ui/form-types/components/FormFieldPlaceholder';
 import { InputLabel } from '@/ui/input/components/InputLabel';
 import { DraggableItem } from '@/ui/layout/draggable-list/components/DraggableItem';
 import { DraggableList } from '@/ui/layout/draggable-list/components/DraggableList';
-import { WorkflowFormAction } from '@/workflow/types/Workflow';
+import { type WorkflowFormAction } from '@/workflow/types/Workflow';
 import { WorkflowStepBody } from '@/workflow/workflow-steps/components/WorkflowStepBody';
-import { WorkflowStepHeader } from '@/workflow/workflow-steps/components/WorkflowStepHeader';
+import { WorkflowStepFooter } from '@/workflow/workflow-steps/components/WorkflowStepFooter';
+import { FORM_ACTION } from '@/workflow/workflow-steps/workflow-actions/constants/actions/FormAction';
 import { WorkflowEditActionFormFieldSettings } from '@/workflow/workflow-steps/workflow-actions/form-action/components/WorkflowEditActionFormFieldSettings';
 import { WorkflowFormEmptyMessage } from '@/workflow/workflow-steps/workflow-actions/form-action/components/WorkflowFormEmptyMessage';
-import { WorkflowFormActionField } from '@/workflow/workflow-steps/workflow-actions/form-action/types/WorkflowFormActionField';
+import { type WorkflowFormActionField } from '@/workflow/workflow-steps/workflow-actions/form-action/types/WorkflowFormActionField';
 import { getDefaultFormFieldSettings } from '@/workflow/workflow-steps/workflow-actions/form-action/utils/getDefaultFormFieldSettings';
-import { useActionHeaderTypeOrThrow } from '@/workflow/workflow-steps/workflow-actions/hooks/useActionHeaderTypeOrThrow';
-import { useActionIconColorOrThrow } from '@/workflow/workflow-steps/workflow-actions/hooks/useActionIconColorOrThrow';
-import { getActionIcon } from '@/workflow/workflow-steps/workflow-actions/utils/getActionIcon';
-import { useTheme } from '@emotion/react';
+import { useWorkflowActionHeader } from '@/workflow/workflow-steps/workflow-actions/hooks/useWorkflowActionHeader';
+import { css, useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
-import { OnDragEndResponder } from '@hello-pangea/dnd';
+import { type OnDragEndResponder } from '@hello-pangea/dnd';
 import { useLingui } from '@lingui/react/macro';
 import { isNonEmptyString } from '@sniptt/guards';
 import { useEffect, useState } from 'react';
@@ -88,7 +89,9 @@ const StyledOpenedSettingsContainer = styled.div`
   grid-area: settings;
 `;
 
-const StyledFieldContainer = styled.div`
+const StyledFieldContainer = styled.div<{
+  readonly?: boolean;
+}>`
   align-items: center;
   background: transparent;
   border: none;
@@ -97,17 +100,19 @@ const StyledFieldContainer = styled.div`
   padding-inline: ${({ theme }) => theme.spacing(2)};
   width: 100%;
 
-  cursor: pointer;
+  cursor: ${({ readonly }) => (readonly ? 'default' : 'pointer')};
 
-  &:hover,
-  &[data-open='true'] {
-    background-color: ${({ theme }) => theme.background.transparent.lighter};
-  }
+  ${({ readonly, theme }) =>
+    !readonly &&
+    css`
+      &:hover,
+      &[data-open='true'] {
+        background-color: ${theme.background.transparent.lighter};
+      }
+    `}
 `;
 
-const StyledPlaceholder = styled.div`
-  color: ${({ theme }) => theme.font.color.light};
-  font-weight: ${({ theme }) => theme.font.weight.medium};
+const StyledPlaceholder = styled(FormFieldPlaceholder)`
   width: 100%;
 `;
 
@@ -136,10 +141,11 @@ export const WorkflowEditActionFormBuilder = ({
 
   const [formData, setFormData] = useState<FormData>(action.settings.input);
 
-  const headerTitle = isDefined(action.name) ? action.name : `Form`;
-  const headerIcon = getActionIcon(action.type);
-  const headerIconColor = useActionIconColorOrThrow(action.type);
-  const headerType = useActionHeaderTypeOrThrow(action.type);
+  const { headerTitle, headerIcon, headerIconColor, headerType } =
+    useWorkflowActionHeader({
+      action,
+      defaultTitle: FORM_ACTION.defaultLabel,
+    });
 
   const [selectedField, setSelectedField] = useState<string | null>(null);
   const [hoveredField, setHoveredField] = useState<string | null>(null);
@@ -217,7 +223,7 @@ export const WorkflowEditActionFormBuilder = ({
 
   return (
     <>
-      <WorkflowStepHeader
+      <SidePanelHeader
         onTitleChange={(newName: string) => {
           if (actionOptions.readonly === true) {
             return;
@@ -233,6 +239,7 @@ export const WorkflowEditActionFormBuilder = ({
         initialTitle={headerTitle}
         headerType={headerType}
         disabled={actionOptions.readonly}
+        iconTooltip={FORM_ACTION.defaultLabel}
       />
       <StyledWorkflowStepBody>
         {formData.length === 0 && (
@@ -280,12 +287,15 @@ export const WorkflowEditActionFormBuilder = ({
 
                           <FormFieldInputRowContainer>
                             <FormFieldInputInnerContainer
+                              formFieldInputInstanceId={field.id}
                               hasRightElement={false}
                               onClick={() => {
                                 handleFieldClick(field.id);
                               }}
                             >
-                              <StyledFieldContainer>
+                              <StyledFieldContainer
+                                readonly={actionOptions.readonly}
+                              >
                                 <StyledPlaceholder>
                                   {isDefined(field.placeholder) &&
                                   isNonEmptyString(field.placeholder)
@@ -351,6 +361,7 @@ export const WorkflowEditActionFormBuilder = ({
             <FormFieldInputContainer>
               <FormFieldInputRowContainer>
                 <FormFieldInputInnerContainer
+                  formFieldInputInstanceId="add-field-button"
                   hasRightElement={false}
                   onClick={() => {
                     const { label, name } = getDefaultFormFieldSettings(
@@ -389,6 +400,7 @@ export const WorkflowEditActionFormBuilder = ({
           </StyledAddFieldButtonContainer>
         )}
       </StyledWorkflowStepBody>
+      {!actionOptions.readonly && <WorkflowStepFooter stepId={action.id} />}
     </>
   );
 };

@@ -1,18 +1,18 @@
 import styled from '@emotion/styled';
 import { isNonEmptyString } from '@sniptt/guards';
-import { IconComponent } from '@ui/display';
+import { type IconComponent } from '@ui/display';
 import { JsonArrow } from '@ui/json-visualizer/components/internal/JsonArrow';
 import { JsonList } from '@ui/json-visualizer/components/internal/JsonList';
 import { JsonNodeLabel } from '@ui/json-visualizer/components/internal/JsonNodeLabel';
 import { JsonNodeValue } from '@ui/json-visualizer/components/internal/JsonNodeValue';
 import { JsonNode } from '@ui/json-visualizer/components/JsonNode';
 import { useJsonTreeContextOrThrow } from '@ui/json-visualizer/hooks/useJsonTreeContextOrThrow';
-import { JsonNodeHighlighting } from '@ui/json-visualizer/types/JsonNodeHighlighting';
+import { type JsonNodeHighlighting } from '@ui/json-visualizer/types/JsonNodeHighlighting';
 import { ANIMATION } from '@ui/theme';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { isDefined } from 'twenty-shared/utils';
-import { JsonValue } from 'type-fest';
+import { type JsonValue } from 'type-fest';
 
 const StyledContainer = styled.li`
   display: grid;
@@ -25,8 +25,9 @@ const StyledLabelContainer = styled.div`
   gap: ${({ theme }) => theme.spacing(2)};
 `;
 
-const StyledElementsCount = styled.span`
-  color: ${({ theme }) => theme.font.color.tertiary};
+const StyledElementsCount = styled.span<{ variant?: 'red' }>`
+  color: ${({ theme, variant }) =>
+    variant === 'red' ? theme.font.color.danger : theme.font.color.tertiary};
 `;
 
 const StyledJsonList = styled(JsonList)``.withComponent(motion.ul);
@@ -118,13 +119,25 @@ export const JsonNestedNode = ({
         <JsonArrow
           isOpen={isOpen}
           onClick={handleArrowClick}
-          variant={highlighting === 'partial-blue' ? 'blue' : undefined}
+          variant={
+            highlighting === 'partial-blue'
+              ? 'blue'
+              : highlighting === 'red'
+                ? highlighting
+                : undefined
+          }
         />
 
-        <JsonNodeLabel label={label} Icon={Icon} />
+        <JsonNodeLabel
+          label={label}
+          Icon={Icon}
+          highlighting={highlighting === 'red' ? highlighting : undefined}
+        />
 
         {renderElementsCount && (
-          <StyledElementsCount>
+          <StyledElementsCount
+            variant={highlighting === 'red' ? 'red' : undefined}
+          >
             {renderElementsCount(elements.length)}
           </StyledElementsCount>
         )}

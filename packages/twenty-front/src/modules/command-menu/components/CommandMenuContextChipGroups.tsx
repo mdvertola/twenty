@@ -2,13 +2,12 @@ import { COMMAND_MENU_CONTEXT_CHIP_GROUPS_DROPDOWN_ID } from '@/command-menu/con
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
-import { useDropdownV2 } from '@/ui/layout/dropdown/hooks/useDropdownV2';
-import { AppHotkeyScope } from '@/ui/utilities/hotkey/types/AppHotkeyScope';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
 import { isDefined } from 'twenty-shared/utils';
 import { MenuItem } from 'twenty-ui/navigation';
 import {
   CommandMenuContextChip,
-  CommandMenuContextChipProps,
+  type CommandMenuContextChipProps,
 } from './CommandMenuContextChip';
 
 export const CommandMenuContextChipGroups = ({
@@ -16,7 +15,7 @@ export const CommandMenuContextChipGroups = ({
 }: {
   contextChips: CommandMenuContextChipProps[];
 }) => {
-  const { closeDropdown } = useDropdownV2();
+  const { closeDropdown } = useCloseDropdown();
 
   if (contextChips.length === 0) {
     return null;
@@ -28,7 +27,7 @@ export const CommandMenuContextChipGroups = ({
         {contextChips.map((chip, index) => (
           <CommandMenuContextChip
             key={index}
-            maxWidth={'180px'}
+            maxWidth="180px"
             Icons={chip.Icons}
             text={chip.text}
             onClick={chip.onClick}
@@ -72,9 +71,6 @@ export const CommandMenuContextChipGroups = ({
               </DropdownMenuItemsContainer>
             </DropdownContent>
           }
-          dropdownHotkeyScope={{
-            scope: AppHotkeyScope.CommandMenu,
-          }}
           dropdownId={COMMAND_MENU_CONTEXT_CHIP_GROUPS_DROPDOWN_ID}
           dropdownPlacement="bottom-start"
         ></Dropdown>
@@ -85,7 +81,7 @@ export const CommandMenuContextChipGroups = ({
           Icons={lastChip.Icons}
           text={lastChip.text}
           onClick={lastChip.onClick}
-          maxWidth={'180px'}
+          maxWidth="180px"
         />
       )}
     </>

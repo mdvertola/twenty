@@ -1,13 +1,14 @@
-import { verifyEmailNextPathState } from '@/app/states/verifyEmailNextPathState';
+import { verifyEmailRedirectPathState } from '@/app/states/verifyEmailRedirectPathState';
 import { useIsLogged } from '@/auth/hooks/useIsLogged';
+import { calendarBookingPageIdState } from '@/client-config/states/calendarBookingPageIdState';
+import { useIsCurrentLocationOnAWorkspace } from '@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace';
 import { useDefaultHomePagePath } from '@/navigation/hooks/useDefaultHomePagePath';
 import { objectMetadataItemsState } from '@/object-metadata/states/objectMetadataItemsState';
 import { useOnboardingStatus } from '@/onboarding/hooks/useOnboardingStatus';
-import { AppPath } from '@/types/AppPath';
-import { SettingsPath } from '@/types/SettingsPath';
 import { useIsWorkspaceActivationStatusEqualsTo } from '@/workspace/hooks/useIsWorkspaceActivationStatusEqualsTo';
 import { useLocation, useParams } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
+import { AppPath, SettingsPath } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { WorkspaceActivationStatus } from 'twenty-shared/workspace';
 import { OnboardingStatus } from '~/generated/graphql';
@@ -15,12 +16,14 @@ import { isMatchingLocation } from '~/utils/isMatchingLocation';
 
 export const usePageChangeEffectNavigateLocation = () => {
   const isLoggedIn = useIsLogged();
+  const { isOnAWorkspace } = useIsCurrentLocationOnAWorkspace();
   const onboardingStatus = useOnboardingStatus();
   const isWorkspaceSuspended = useIsWorkspaceActivationStatusEqualsTo(
     WorkspaceActivationStatus.SUSPENDED,
   );
   const { defaultHomePagePath } = useDefaultHomePagePath();
   const location = useLocation();
+  const calendarBookingPageId = useRecoilValue(calendarBookingPageIdState);
 
   const someMatchingLocationOf = (appPaths: AppPath[]): boolean =>
     appPaths.some((appPath) => isMatchingLocation(location, appPath));
@@ -37,17 +40,19 @@ export const usePageChangeEffectNavigateLocation = () => {
     AppPath.InviteTeam,
     AppPath.PlanRequired,
     AppPath.PlanRequiredSuccess,
+    AppPath.BookCallDecision,
+    AppPath.BookCall,
   ];
 
   const objectNamePlural = useParams().objectNamePlural ?? '';
   const objectMetadataItems = useRecoilValue(objectMetadataItemsState);
-  const objectMetadataItem = objectMetadataItems.find(
+  const objectMetadataItem = objectMetadataItems?.find(
     (objectMetadataItem) => objectMetadataItem.namePlural === objectNamePlural,
   );
-  const verifyEmailNextPath = useRecoilValue(verifyEmailNextPathState);
+  const verifyEmailRedirectPath = useRecoilValue(verifyEmailRedirectPathState);
 
   if (
-    !isLoggedIn &&
+    (!isLoggedIn || (isLoggedIn && !isOnAWorkspace)) &&
     !someMatchingLocationOf([
       ...onGoingUserCreationPaths,
       AppPath.ResetPassword,
@@ -58,31 +63,38 @@ export const usePageChangeEffectNavigateLocation = () => {
 
   if (
     onboardingStatus === OnboardingStatus.PLAN_REQUIRED &&
-    !someMatchingLocationOf([AppPath.PlanRequired, AppPath.PlanRequiredSuccess])
+    !someMatchingLocationOf([
+      AppPath.PlanRequired,
+      AppPath.PlanRequiredSuccess,
+      AppPath.BookCall,
+      AppPath.BookCallDecision,
+    ])
   ) {
     if (
       isMatchingLocation(location, AppPath.VerifyEmail) &&
-      isDefined(verifyEmailNextPath)
+      isDefined(verifyEmailRedirectPath)
     ) {
-      return verifyEmailNextPath;
+      return verifyEmailRedirectPath;
     }
     return AppPath.PlanRequired;
   }
 
-  if (
-    isWorkspaceSuspended &&
-    !isMatchingLocation(location, AppPath.SettingsCatchAll)
-  ) {
-    return `${AppPath.SettingsCatchAll.replace('/*', '')}/${
-      SettingsPath.Billing
-    }`;
+  if (isWorkspaceSuspended) {
+    if (!isMatchingLocation(location, AppPath.SettingsCatchAll)) {
+      return `${AppPath.SettingsCatchAll.replace('/*', '')}/${
+        SettingsPath.Billing
+      }`;
+    }
+
+    return;
   }
 
   if (
     onboardingStatus === OnboardingStatus.WORKSPACE_ACTIVATION &&
     !someMatchingLocationOf([
       AppPath.CreateWorkspace,
-      AppPath.PlanRequiredSuccess,
+      AppPath.BookCallDecision,
+      AppPath.BookCall,
     ])
   ) {
     return AppPath.CreateWorkspace;
@@ -107,6 +119,16 @@ export const usePageChangeEffectNavigateLocation = () => {
     !isMatchingLocation(location, AppPath.InviteTeam)
   ) {
     return AppPath.InviteTeam;
+  }
+
+  if (
+    onboardingStatus === OnboardingStatus.BOOK_ONBOARDING &&
+    !someMatchingLocationOf([AppPath.BookCallDecision, AppPath.BookCall])
+  ) {
+    if (!isDefined(calendarBookingPageId)) {
+      return defaultHomePagePath;
+    }
+    return AppPath.BookCallDecision;
   }
 
   if (

@@ -3,9 +3,10 @@ import { Field, HideField, InputType } from '@nestjs/graphql';
 import { BeforeCreateOne } from '@ptc-org/nestjs-query-graphql';
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
-import { FieldMetadataType } from 'twenty-shared/types';
-
-import { FieldMetadataSettings } from 'src/engine/metadata-modules/field-metadata/interfaces/field-metadata-settings.interface';
+import {
+  type FieldMetadataType,
+  type FieldMetadataSettings,
+} from 'twenty-shared/types';
 
 import { IsValidMetadataName } from 'src/engine/decorators/metadata/is-valid-metadata-name.decorator';
 import { BeforeCreateOneObject } from 'src/engine/metadata-modules/object-metadata/hooks/before-create-one-object.hook';
@@ -56,6 +57,12 @@ export class CreateObjectInput {
   @HideField()
   workspaceId: string;
 
+  @HideField()
+  applicationId?: string;
+
+  @HideField()
+  standardId?: string;
+
   @IsBoolean()
   @IsOptional()
   @Field({ nullable: true })
@@ -71,6 +78,6 @@ export class CreateObjectInput {
 
   @IsBoolean()
   @IsOptional()
-  @Field({ nullable: true })
+  @Field({ nullable: true }) // Not nullable to me
   isLabelSyncedWithName?: boolean;
 }

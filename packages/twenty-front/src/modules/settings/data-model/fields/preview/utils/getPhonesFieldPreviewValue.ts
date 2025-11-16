@@ -1,11 +1,10 @@
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { DEFAULT_PHONE_CALLING_CODE } from '@/object-record/record-field/meta-types/input/components/PhonesFieldInput';
-import { FieldPhonesValue } from '@/object-record/record-field/types/FieldMetadata';
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { type FieldPhonesValue } from '@/object-record/record-field/ui/types/FieldMetadata';
 import { getSettingsFieldTypeConfig } from '@/settings/data-model/utils/getSettingsFieldTypeConfig';
 import {
-  CountryCode,
   getCountries,
   getCountryCallingCode,
+  type CountryCode,
 } from 'libphonenumber-js';
 import { FieldMetadataType } from '~/generated-metadata/graphql';
 import { stripSimpleQuotesFromString } from '~/utils/string/stripSimpleQuotesFromString';
@@ -16,12 +15,12 @@ const isStrCountryCodeGuard = (str: string): str is CountryCode => {
 
 export const countryCodeToCallingCode = (countryCode: string): string => {
   if (!countryCode || !isStrCountryCodeGuard(countryCode)) {
-    return `+${DEFAULT_PHONE_CALLING_CODE}`;
+    return '';
   }
 
   const callingCode = getCountryCallingCode(countryCode);
 
-  return callingCode ? `+${callingCode}` : `+${DEFAULT_PHONE_CALLING_CODE}`;
+  return callingCode ? `+${callingCode}` : '';
 };
 
 export const getPhonesFieldPreviewValue = ({
@@ -38,7 +37,7 @@ export const getPhonesFieldPreviewValue = ({
     FieldMetadataType.PHONES,
   );
 
-  const placeholderDefaultValue = phonesFieldTypeConfig.exampleValue;
+  const placeholderDefaultValue = phonesFieldTypeConfig.exampleValues?.[0];
   const primaryPhoneCountryCode =
     fieldMetadataItem.defaultValue?.primaryPhoneCountryCode &&
     fieldMetadataItem.defaultValue.primaryPhoneCountryCode !== ''

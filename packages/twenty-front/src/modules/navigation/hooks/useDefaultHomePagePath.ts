@@ -1,45 +1,62 @@
 import { currentUserState } from '@/auth/states/currentUserState';
 import { lastVisitedObjectMetadataItemIdState } from '@/navigation/states/lastVisitedObjectMetadataItemIdState';
-import { ObjectPathInfo } from '@/navigation/types/ObjectPathInfo';
+import { type ObjectPathInfo } from '@/navigation/types/ObjectPathInfo';
 import { useFilteredObjectMetadataItems } from '@/object-metadata/hooks/useFilteredObjectMetadataItems';
-import { prefetchViewsState } from '@/prefetch/states/prefetchViewsState';
-import { AppPath } from '@/types/AppPath';
+import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
+import { getObjectPermissionsFromMapByObjectMetadataId } from '@/settings/roles/role-permissions/objects-permissions/utils/getObjectPermissionsFromMapByObjectMetadataId';
+import { coreViewsState } from '@/views/states/coreViewState';
+import { convertCoreViewToView } from '@/views/utils/convertCoreViewToView';
+import isEmpty from 'lodash.isempty';
 import { useCallback, useMemo } from 'react';
-import { useRecoilValue } from 'recoil';
-import { isDefined } from 'twenty-shared/utils';
-import { getAppPath } from '~/utils/navigation/getAppPath';
+import { useRecoilCallback, useRecoilValue } from 'recoil';
+import { AppPath, SettingsPath } from 'twenty-shared/types';
+import { getAppPath, getSettingsPath, isDefined } from 'twenty-shared/utils';
 
 export const useDefaultHomePagePath = () => {
   const currentUser = useRecoilValue(currentUserState);
-  const {
-    activeNonSystemObjectMetadataItems,
+  const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
+
+  const { alphaSortedActiveNonSystemObjectMetadataItems } =
+    useFilteredObjectMetadataItems();
+
+  const readableAlphaSortedActiveNonSystemObjectMetadataItems = useMemo(() => {
+    return alphaSortedActiveNonSystemObjectMetadataItems.filter((item) => {
+      const objectPermissions = getObjectPermissionsFromMapByObjectMetadataId({
+        objectPermissionsByObjectMetadataId,
+        objectMetadataId: item.id,
+      });
+      return objectPermissions?.canReadObjectRecords;
+    });
+  }, [
     alphaSortedActiveNonSystemObjectMetadataItems,
-  } = useFilteredObjectMetadataItems();
-  const prefetchViews = useRecoilValue(prefetchViewsState);
-  const lastVisitedObjectMetadataItemId = useRecoilValue(
-    lastVisitedObjectMetadataItemIdState,
-  );
+    objectPermissionsByObjectMetadataId,
+  ]);
 
   const getActiveObjectMetadataItemMatchingId = useCallback(
     (objectMetadataId: string) => {
-      return activeNonSystemObjectMetadataItems.find(
+      return readableAlphaSortedActiveNonSystemObjectMetadataItems.find(
         (item) => item.id === objectMetadataId,
       );
     },
-    [activeNonSystemObjectMetadataItems],
+    [readableAlphaSortedActiveNonSystemObjectMetadataItems],
   );
 
-  const getFirstView = useCallback(
-    (objectMetadataItemId: string | undefined | null) =>
-      prefetchViews.find(
+  const getFirstView = useRecoilCallback(({ snapshot }) => {
+    return (objectMetadataItemId: string | undefined | null) => {
+      const views = snapshot
+        .getLoadable(coreViewsState)
+        .getValue()
+        .map(convertCoreViewToView);
+
+      return views.find(
         (view) => view.objectMetadataId === objectMetadataItemId,
-      ),
-    [prefetchViews],
-  );
+      );
+    };
+  }, []);
 
   const firstObjectPathInfo = useMemo<ObjectPathInfo | null>(() => {
     const [firstObjectMetadataItem] =
-      alphaSortedActiveNonSystemObjectMetadataItems;
+      readableAlphaSortedActiveNonSystemObjectMetadataItems;
 
     if (!isDefined(firstObjectMetadataItem)) {
       return null;
@@ -48,36 +65,46 @@ export const useDefaultHomePagePath = () => {
     const view = getFirstView(firstObjectMetadataItem?.id);
 
     return { objectMetadataItem: firstObjectMetadataItem, view };
-  }, [alphaSortedActiveNonSystemObjectMetadataItems, getFirstView]);
+  }, [getFirstView, readableAlphaSortedActiveNonSystemObjectMetadataItems]);
 
-  const defaultObjectPathInfo = useMemo<ObjectPathInfo | null>(() => {
-    if (!isDefined(lastVisitedObjectMetadataItemId)) {
-      return firstObjectPathInfo;
-    }
+  const getDefaultObjectPathInfo = useRecoilCallback(
+    ({ snapshot }) => {
+      return () => {
+        const lastVisitedObjectMetadataItemId = snapshot
+          .getLoadable(lastVisitedObjectMetadataItemIdState)
+          .getValue();
 
-    const lastVisitedObjectMetadataItem = getActiveObjectMetadataItemMatchingId(
-      lastVisitedObjectMetadataItemId,
-    );
+        const lastVisitedObjectMetadataItem = isDefined(
+          lastVisitedObjectMetadataItemId,
+        )
+          ? getActiveObjectMetadataItemMatchingId(
+              lastVisitedObjectMetadataItemId,
+            )
+          : undefined;
 
-    if (isDefined(lastVisitedObjectMetadataItem)) {
-      return {
-        view: getFirstView(lastVisitedObjectMetadataItemId),
-        objectMetadataItem: lastVisitedObjectMetadataItem,
+        if (isDefined(lastVisitedObjectMetadataItem)) {
+          return {
+            view: getFirstView(lastVisitedObjectMetadataItemId),
+            objectMetadataItem: lastVisitedObjectMetadataItem,
+          };
+        }
+
+        return firstObjectPathInfo;
       };
-    }
-
-    return firstObjectPathInfo;
-  }, [
-    firstObjectPathInfo,
-    getActiveObjectMetadataItemMatchingId,
-    getFirstView,
-    lastVisitedObjectMetadataItemId,
-  ]);
+    },
+    [firstObjectPathInfo, getActiveObjectMetadataItemMatchingId, getFirstView],
+  );
 
   const defaultHomePagePath = useMemo(() => {
     if (!isDefined(currentUser)) {
       return AppPath.SignInUp;
     }
+
+    if (isEmpty(readableAlphaSortedActiveNonSystemObjectMetadataItems)) {
+      return getSettingsPath(SettingsPath.ProfilePage);
+    }
+
+    const defaultObjectPathInfo = getDefaultObjectPathInfo();
 
     if (!isDefined(defaultObjectPathInfo)) {
       return AppPath.NotFound;
@@ -91,7 +118,11 @@ export const useDefaultHomePagePath = () => {
       { objectNamePlural: namePlural },
       viewId ? { viewId } : undefined,
     );
-  }, [currentUser, defaultObjectPathInfo]);
+  }, [
+    currentUser,
+    getDefaultObjectPathInfo,
+    readableAlphaSortedActiveNonSystemObjectMetadataItems,
+  ]);
 
   return { defaultHomePagePath };
 };

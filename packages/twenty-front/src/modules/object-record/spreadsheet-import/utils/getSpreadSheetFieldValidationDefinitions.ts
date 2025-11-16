@@ -1,8 +1,17 @@
-import { emailSchema } from '@/object-record/record-field/validation-schemas/emailSchema';
-import { SpreadsheetImportFieldValidationDefinition } from '@/spreadsheet-import/types';
+import { isFieldRatingValue } from '@/object-record/record-field/ui/types/guards/isFieldRatingValue';
+import { emailSchema } from '@/object-record/record-field/ui/validation-schemas/emailSchema';
+import { type SpreadsheetImportFieldValidationDefinition } from '@/spreadsheet-import/types';
 import { t } from '@lingui/core/macro';
 import { isDate, isString } from '@sniptt/guards';
-import { absoluteUrlSchema, isDefined, isValidUuid } from 'twenty-shared/utils';
+import { parsePhoneNumberWithError } from 'libphonenumber-js';
+import { RATING_VALUES } from 'twenty-shared/constants';
+import {
+  absoluteUrlSchema,
+  getCountryCodesForCallingCode,
+  isDefined,
+  isValidCountryCode,
+  isValidUuid,
+} from 'twenty-shared/utils';
 import { FieldMetadataType } from '~/generated-metadata/graphql';
 
 const getNumberValidationDefinition = (
@@ -13,6 +22,20 @@ const getNumberValidationDefinition = (
   errorMessage: `${fieldName} ${t`must be a number`}`,
   level: 'error',
 });
+
+const isValidPhoneNumber = (value: string) => {
+  try {
+    return isDefined(
+      parsePhoneNumberWithError(value, { defaultCallingCode: '1' }),
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isValidCallingCode = (value: string) => {
+  return getCountryCodesForCallingCode(value).length > 0;
+};
 
 export const getSpreadSheetFieldValidationDefinitions = (
   type: FieldMetadataType,
@@ -34,14 +57,14 @@ export const getSpreadSheetFieldValidationDefinitions = (
       ];
     case FieldMetadataType.CURRENCY:
       switch (subFieldKey) {
-        case 'amountMicrosLabel':
+        case 'amountMicros':
           return [getNumberValidationDefinition(fieldName)];
         default:
           return [];
       }
     case FieldMetadataType.EMAILS:
       switch (subFieldKey) {
-        case 'primaryEmailLabel':
+        case 'primaryEmail':
           return [
             {
               rule: 'function',
@@ -50,7 +73,7 @@ export const getSpreadSheetFieldValidationDefinitions = (
               level: 'error',
             },
           ];
-        case 'additionalEmailsLabel':
+        case 'additionalEmails':
           return [
             {
               rule: 'function',
@@ -76,7 +99,7 @@ export const getSpreadSheetFieldValidationDefinitions = (
       }
     case FieldMetadataType.LINKS:
       switch (subFieldKey) {
-        case 'primaryLinkUrlLabel':
+        case 'primaryLinkUrl':
           return [
             {
               rule: 'function',
@@ -88,7 +111,7 @@ export const getSpreadSheetFieldValidationDefinitions = (
               level: 'error',
             },
           ];
-        case 'secondaryLinksLabel':
+        case 'secondaryLinks':
           return [
             {
               rule: 'function',
@@ -138,16 +161,34 @@ export const getSpreadSheetFieldValidationDefinitions = (
       ];
     case FieldMetadataType.PHONES:
       switch (subFieldKey) {
-        case 'primaryPhoneNumberLabel':
+        case 'primaryPhoneNumber':
           return [
             {
-              rule: 'regex',
-              value: '^[0-9]+$',
-              errorMessage: `${fieldName} ${t`must contain only numbers`}`,
+              rule: 'function',
+              isValid: isValidPhoneNumber,
+              errorMessage: `${fieldName} ${t`is not a valid phone number`}`,
               level: 'error',
             },
           ];
-        case 'additionalPhonesLabel':
+        case 'primaryPhoneCallingCode':
+          return [
+            {
+              rule: 'function',
+              isValid: isValidCallingCode,
+              errorMessage: `${fieldName} ${t`is not a valid calling code`}`,
+              level: 'error',
+            },
+          ];
+        case 'primaryPhoneCountryCode':
+          return [
+            {
+              rule: 'function',
+              isValid: isValidCountryCode,
+              errorMessage: `${fieldName} ${t`is not a valid country code`}`,
+              level: 'error',
+            },
+          ];
+        case 'additionalPhones':
           return [
             {
               rule: 'function',
@@ -163,10 +204,9 @@ export const getSpreadSheetFieldValidationDefinitions = (
                       callingCode: string;
                       countryCode: string;
                     }) =>
-                      isDefined(phone.number) &&
-                      /^[0-9]+$/.test(phone.number) &&
-                      isDefined(phone.callingCode) &&
-                      isDefined(phone.countryCode),
+                      isValidPhoneNumber(phone.number) &&
+                      isValidCallingCode(phone.callingCode) &&
+                      isValidCountryCode(phone.countryCode),
                   );
                 } catch {
                   return false;
@@ -214,6 +254,18 @@ export const getSpreadSheetFieldValidationDefinitions = (
           level: 'error',
         },
       ];
+    case FieldMetadataType.RATING: {
+      const ratingValues = RATING_VALUES.join(', ');
+
+      return [
+        {
+          rule: 'function',
+          isValid: isFieldRatingValue,
+          errorMessage: `${fieldName} ${t` must be one of ${ratingValues} values`}`,
+          level: 'error',
+        },
+      ];
+    }
     default:
       return [];
   }

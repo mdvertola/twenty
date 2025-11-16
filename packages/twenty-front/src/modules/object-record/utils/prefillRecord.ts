@@ -1,11 +1,11 @@
 import { isUndefined } from '@sniptt/guards';
 
-import { FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
-import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { generateEmptyFieldValue } from '@/object-record/utils/generateEmptyFieldValue';
-import { isDefined } from 'twenty-shared/utils';
-import { FieldMetadataType, RelationDefinitionType } from '~/generated/graphql';
+import { computeMorphRelationFieldName, isDefined } from 'twenty-shared/utils';
+import { FieldMetadataType, RelationType } from '~/generated/graphql';
 
 type PrefillRecordArgs = {
   objectMetadataItem: ObjectMetadataItem;
@@ -19,19 +19,48 @@ export const prefillRecord = <T extends ObjectRecord>({
     objectMetadataItem.fields
       .map((fieldMetadataItem) => {
         const inputValue = input[fieldMetadataItem.name];
-        if (
-          fieldMetadataItem.type === FieldMetadataType.RELATION &&
-          fieldMetadataItem.relationDefinition?.direction ===
-            RelationDefinitionType.MANY_TO_ONE
-        ) {
-          throwIfInputRelationDataIsInconsistent(input, fieldMetadataItem);
-        }
-
         const fieldValue = isUndefined(inputValue)
           ? generateEmptyFieldValue({ fieldMetadataItem })
           : inputValue;
-        return [fieldMetadataItem.name, fieldValue];
+        if (
+          fieldMetadataItem.type === FieldMetadataType.RELATION &&
+          fieldMetadataItem.relation?.type === RelationType.MANY_TO_ONE
+        ) {
+          const joinColumnValue =
+            input[fieldMetadataItem.settings?.joinColumnName] ?? null;
+          throwIfInputRelationDataIsInconsistent(input, fieldMetadataItem);
+
+          return [
+            [fieldMetadataItem.name, fieldValue],
+            [fieldMetadataItem.settings?.joinColumnName, joinColumnValue],
+          ];
+        }
+        if (
+          fieldMetadataItem.type === FieldMetadataType.MORPH_RELATION &&
+          fieldMetadataItem.settings?.relationType === RelationType.MANY_TO_ONE
+        ) {
+          const gqlFields = fieldMetadataItem.morphRelations?.map(
+            (morphRelation) => {
+              return computeMorphRelationFieldName({
+                fieldName: fieldMetadataItem.name,
+                relationType: morphRelation.type,
+                targetObjectMetadataNameSingular:
+                  morphRelation.targetObjectMetadata.nameSingular,
+                targetObjectMetadataNamePlural:
+                  morphRelation.targetObjectMetadata.namePlural,
+              });
+            },
+          );
+
+          return gqlFields?.flatMap((gqlField) => [
+            [gqlField, fieldValue],
+            [`${gqlField}Id`, input[`${gqlField}Id`] ?? null],
+          ]);
+        }
+
+        return [[fieldMetadataItem.name, fieldValue]];
       })
+      .flat()
       .filter(isDefined),
   ) as T;
 };

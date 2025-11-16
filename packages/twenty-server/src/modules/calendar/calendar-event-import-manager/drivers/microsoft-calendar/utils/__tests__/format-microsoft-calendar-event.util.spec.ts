@@ -1,4 +1,4 @@
-import { Event } from '@microsoft/microsoft-graph-types';
+import { type Event } from '@microsoft/microsoft-graph-types';
 
 import { formatMicrosoftCalendarEvents } from 'src/modules/calendar/calendar-event-import-manager/drivers/microsoft-calendar/utils/format-microsoft-calendar-event.util';
 import { CalendarEventParticipantResponseStatus } from 'src/modules/calendar/common/standard-objects/calendar-event-participant.workspace-entity';
@@ -66,7 +66,7 @@ describe('formatMicrosoftCalendarEvents', () => {
     expect(formattedEvent.isFullDay).toBe(false);
     expect(formattedEvent.startsAt).toBe('2023-01-15T14:00:00Z');
     expect(formattedEvent.endsAt).toBe('2023-01-15T15:00:00Z');
-    expect(formattedEvent.externalId).toBe('event123');
+    expect(formattedEvent.id).toBe('event123');
     expect(formattedEvent.conferenceSolution).toBe('teamsForBusiness');
     expect(formattedEvent.conferenceLinkUrl).toBe(
       'https://teams.microsoft.com/l/meetup-join/abc123',

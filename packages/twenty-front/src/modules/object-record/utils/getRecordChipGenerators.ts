@@ -1,16 +1,16 @@
 import {
-  ChipGeneratorPerObjectNameSingularPerFieldName,
-  IdentifierChipGeneratorPerObject,
+  type ChipGeneratorPerObjectNameSingularPerFieldName,
+  type IdentifierChipGeneratorPerObject,
 } from '@/object-metadata/contexts/PreComputedChipGeneratorsContext';
-import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
 import { getAvatarType } from '@/object-metadata/utils/getAvatarType';
 import { getAvatarUrl } from '@/object-metadata/utils/getAvatarUrl';
 import { getLabelIdentifierFieldMetadataItem } from '@/object-metadata/utils/getLabelIdentifierFieldMetadataItem';
 import { getLabelIdentifierFieldValue } from '@/object-metadata/utils/getLabelIdentifierFieldValue';
 import { isLabelIdentifierField } from '@/object-metadata/utils/isLabelIdentifierField';
-import { isFieldIdentifierDisplay } from '@/object-record/record-field/meta-types/display/utils/isFieldIdentifierDisplay';
-import { RecordChipData } from '@/object-record/record-field/types/RecordChipData';
-import { ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { isFieldIdentifierDisplay } from '@/object-record/record-field/ui/meta-types/display/utils/isFieldIdentifierDisplay';
+import { type RecordChipData } from '@/object-record/record-field/ui/types/RecordChipData';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { isDefined } from 'twenty-shared/utils';
 import { FieldMetadataType } from '~/generated-metadata/graphql';
 
@@ -48,8 +48,8 @@ export const getRecordChipGenerators = (
 
           const currentObjectNameSingular = objectMetadataItem.nameSingular;
           const fieldObjectNameSingular =
-            fieldMetadataItem.relationDefinition?.targetObjectMetadata
-              .nameSingular ?? undefined;
+            fieldMetadataItem.relation?.targetObjectMetadata.nameSingular ??
+            undefined;
 
           const objectNameSingularToFind = isLabelIdentifier
             ? currentObjectNameSingular

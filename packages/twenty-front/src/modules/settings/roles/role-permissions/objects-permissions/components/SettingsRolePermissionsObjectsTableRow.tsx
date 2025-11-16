@@ -1,11 +1,10 @@
 import { PermissionIcon } from '@/settings/roles/role-permissions/objects-permissions/components/PermissionIcon';
-import { SettingsRoleObjectPermissionKey } from '@/settings/roles/role-permissions/objects-permissions/constants/settingsRoleObjectPermissionIconConfig';
-import { SettingsRolePermissionsObjectPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
+import { type SettingsRoleObjectPermissionKey } from '@/settings/roles/role-permissions/objects-permissions/constants/SettingsRoleObjectPermissionIconConfig';
+import { type SettingsRolePermissionsObjectPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
 import { TableCell } from '@/ui/layout/table/components/TableCell';
 import { TableRow } from '@/ui/layout/table/components/TableRow';
 import styled from '@emotion/styled';
-import { t } from '@lingui/core/macro';
-import pluralize from 'pluralize';
+import { plural } from '@lingui/core/macro';
 import { Checkbox, CheckboxAccent } from 'twenty-ui/input';
 
 const StyledPermissionCell = styled(TableCell)`
@@ -36,12 +35,13 @@ const StyledCheckboxCell = styled(TableCell)`
   align-items: center;
   display: flex;
   justify-content: flex-end;
-  padding-right: ${({ theme }) => theme.spacing(4)};
+  padding-right: ${({ theme }) => theme.spacing(1)};
 `;
 
-const StyledTableRow = styled(TableRow)`
+const StyledTableRow = styled(TableRow)<{ isDisabled: boolean }>`
   align-items: center;
   display: flex;
+  cursor: ${({ isDisabled }) => (isDisabled ? 'default' : 'pointer')};
 `;
 
 type SettingsRolePermissionsObjectsTableRowProps = {
@@ -54,13 +54,20 @@ export const SettingsRolePermissionsObjectsTableRow = ({
   isEditable,
 }: SettingsRolePermissionsObjectsTableRowProps) => {
   const revokedBy = permission.revokedBy;
+  const grantedBy = permission.grantedBy;
   const isRevoked =
     revokedBy !== undefined && revokedBy !== null && revokedBy > 0;
   const label = permission.label;
-  const pluralizedObject = pluralize('object', revokedBy);
+  const isDisabled = !isEditable;
+
+  const handleRowClick = () => {
+    if (isDisabled) return;
+
+    permission.setValue(!permission.value);
+  };
 
   return (
-    <StyledTableRow>
+    <StyledTableRow onClick={handleRowClick} isDisabled={isDisabled}>
       <StyledPermissionCell>
         <StyledPermissionContent>
           <PermissionIcon
@@ -70,19 +77,30 @@ export const SettingsRolePermissionsObjectsTableRow = ({
           <StyledPermissionLabel>{label}</StyledPermissionLabel>
         </StyledPermissionContent>
         <StyledOverrideInfo>
-          {isRevoked ? (
+          {isRevoked && revokedBy > 0 ? (
             <>
               {' · '}
-              {t`Revoked on ${revokedBy} ${pluralizedObject}`}
+              {plural(revokedBy, {
+                one: `Revoked for ${revokedBy} object`,
+                other: `Revoked for ${revokedBy} objects`,
+              })}
+            </>
+          ) : grantedBy && grantedBy > 0 ? (
+            <>
+              {' · '}
+              {plural(grantedBy, {
+                one: `Granted for ${grantedBy} object`,
+                other: `Granted for ${grantedBy} objects`,
+              })}
             </>
           ) : null}
         </StyledOverrideInfo>
       </StyledPermissionCell>
-      <StyledCheckboxCell>
+      <StyledCheckboxCell onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={permission.value ?? false}
           onChange={() => permission.setValue(!permission.value)}
-          disabled={!isEditable}
+          disabled={isDisabled}
           accent={isRevoked ? CheckboxAccent.Orange : CheckboxAccent.Blue}
         />
       </StyledCheckboxCell>

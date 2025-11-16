@@ -1,14 +1,14 @@
 import styled from '@emotion/styled';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { TextInput } from '@/ui/input/components/TextInput';
+import { SettingsTextInput } from '@/ui/input/components/SettingsTextInput';
 
-import { Modal, ModalVariants } from '@/ui/layout/modal/components/Modal';
+import { Modal, type ModalVariants } from '@/ui/layout/modal/components/Modal';
 import { useModal } from '@/ui/layout/modal/hooks/useModal';
 import { useLingui } from '@lingui/react/macro';
 import { H1Title, H1TitleFontColor } from 'twenty-ui/display';
-import { Button, ButtonAccent } from 'twenty-ui/input';
+import { Button, type ButtonAccent } from 'twenty-ui/input';
 import { Section, SectionAlignment, SectionFontColor } from 'twenty-ui/layout';
 
 export type ConfirmationModalProps = {
@@ -53,7 +53,7 @@ export const StyledConfirmationButton = styled(StyledCenteredButton)`
   font-size: ${({ theme }) => theme.font.size.md};
   line-height: ${({ theme }) => theme.text.lineHeight.lg};
   :hover {
-    background-color: ${({ theme }) => theme.color.red10};
+    background-color: ${({ theme }) => theme.color.red3};
   }
 `;
 
@@ -116,7 +116,7 @@ export const ConfirmationModal = ({
       isClosable={true}
       padding="large"
       modalVariant={modalVariant}
-      data-globally-prevent-click-outside
+      dataGloballyPreventClickOutside
     >
       <StyledCenteredTitle>
         <H1Title title={title} fontColor={H1TitleFontColor.Primary} />
@@ -129,7 +129,8 @@ export const ConfirmationModal = ({
       </StyledSection>
       {confirmationValue && (
         <Section>
-          <TextInput
+          <SettingsTextInput
+            instanceId="confirmation-modal-input"
             dataTestId="confirmation-modal-input"
             value={inputConfirmationValue}
             onChange={handleInputConfimrationValueChange}

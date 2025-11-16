@@ -9,23 +9,23 @@ import { SOFT_DELETE_FILTER_FIELD_NAME } from '@/object-record/record-filter/con
 import { useRemoveRecordFilter } from '@/object-record/record-filter/hooks/useRemoveRecordFilter';
 import { currentRecordFiltersComponentState } from '@/object-record/record-filter/states/currentRecordFiltersComponentState';
 import { getAllRecordFilterDescendantsOfRecordFilterGroup } from '@/object-record/record-filter/utils/getAllRecordFilterDescendantsOfRecordFilterGroup';
-import { useDropdown } from '@/ui/layout/dropdown/hooks/useDropdown';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { SortOrFilterChip } from '@/views/components/SortOrFilterChip';
 import { ADVANCED_FILTER_DROPDOWN_ID } from '@/views/constants/AdvancedFilterDropdownId';
-import { plural } from 'pluralize';
+import { plural } from '@lingui/core/macro';
 import { useMemo } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 import { IconFilter } from 'twenty-ui/display';
 
 export const AdvancedFilterChip = () => {
-  const { closeDropdown } = useDropdown(ADVANCED_FILTER_DROPDOWN_ID);
+  const { closeDropdown } = useCloseDropdown();
 
-  const currentRecordFilterGroups = useRecoilComponentValueV2(
+  const currentRecordFilterGroups = useRecoilComponentValue(
     currentRecordFilterGroupsComponentState,
   );
 
-  const currentRecordFilters = useRecoilComponentValueV2(
+  const currentRecordFilters = useRecoilComponentValue(
     currentRecordFiltersComponentState,
   );
 
@@ -39,7 +39,7 @@ export const AdvancedFilterChip = () => {
   const { removeRootRecordFilterGroupIfEmpty } =
     useRemoveRootRecordFilterGroupIfEmpty();
 
-  const rootRecordFilterGroup = useRecoilComponentValueV2(
+  const rootRecordFilterGroup = useRecoilComponentValue(
     rootLevelRecordFilterGroupComponentSelector,
   );
 
@@ -49,7 +49,7 @@ export const AdvancedFilterChip = () => {
     });
 
   const handleRemoveClick = () => {
-    closeDropdown();
+    closeDropdown(ADVANCED_FILTER_DROPDOWN_ID);
 
     const viewFilterGroupIds = currentRecordFilterGroups.map(
       (recordFilterGroup) => recordFilterGroup.id,
@@ -68,8 +68,10 @@ export const AdvancedFilterChip = () => {
 
   const advancedFilterCount = childRecordFiltersAndRecordFilterGroups.length;
 
-  const labelText = 'advanced rule';
-  const chipLabel = `${advancedFilterCount} ${advancedFilterCount === 1 ? labelText : plural(labelText)}`;
+  const chipLabel = plural(advancedFilterCount, {
+    one: `${advancedFilterCount} advanced rule`,
+    other: `${advancedFilterCount} advanced rules`,
+  });
 
   const { objectMetadataItems } = useObjectMetadataItems();
 

@@ -1,15 +1,15 @@
-import { CurrentWorkspaceMember } from '@/auth/states/currentWorkspaceMemberState';
-import { FieldMetadataItemOption } from '@/object-metadata/types/FieldMetadataItem';
+import { type CurrentWorkspaceMember } from '@/auth/states/currentWorkspaceMemberState';
+import { type FieldMetadataItemOption } from '@/object-metadata/types/FieldMetadataItem';
 import { isCompositeFieldType } from '@/object-record/object-filter-dropdown/utils/isCompositeFieldType';
 
 import {
-  RecordFilter,
-  RecordFilterToRecordInputOperand,
+  type RecordFilter,
+  type RecordFilterToRecordInputOperand,
 } from '@/object-record/record-filter/types/RecordFilter';
 import { FILTER_OPERANDS_MAP } from '@/object-record/record-filter/utils/getRecordFilterOperands';
-import { ViewFilterOperand } from '@/views/types/ViewFilterOperand';
+import { ViewFilterOperand } from 'twenty-shared/types';
 import { assertUnreachable, parseJson } from 'twenty-shared/utils';
-import { RelationDefinitionType } from '~/generated-metadata/graphql';
+import { RelationType } from '~/generated-metadata/graphql';
 
 export const buildValueFromFilter = ({
   filter,
@@ -20,7 +20,7 @@ export const buildValueFromFilter = ({
 }: {
   filter: RecordFilter;
   options?: FieldMetadataItemOption[];
-  relationType?: RelationDefinitionType;
+  relationType?: RelationType;
   currentWorkspaceMember?: CurrentWorkspaceMember;
   label?: string;
 }) => {
@@ -96,6 +96,11 @@ export const buildValueFromFilter = ({
         label,
       );
     }
+    case 'UUID':
+      return computeValueFromFilterUUID(
+        filter.operand as (typeof FILTER_OPERANDS_MAP)['UUID'][number],
+        filter.value,
+      );
     default:
       assertUnreachable(filter.type);
   }
@@ -106,12 +111,12 @@ const computeValueFromFilterText = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Contains:
+    case ViewFilterOperand.CONTAINS:
       return value;
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       return value;
-    case ViewFilterOperand.IsEmpty:
-    case ViewFilterOperand.DoesNotContain:
+    case ViewFilterOperand.IS_EMPTY:
+    case ViewFilterOperand.DOES_NOT_CONTAIN:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -123,17 +128,17 @@ const computeValueFromFilterDate = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Is:
-    case ViewFilterOperand.IsAfter:
-    case ViewFilterOperand.IsBefore:
+    case ViewFilterOperand.IS:
+    case ViewFilterOperand.IS_AFTER:
+    case ViewFilterOperand.IS_BEFORE:
       return new Date(value);
-    case ViewFilterOperand.IsToday:
-    case ViewFilterOperand.IsNotEmpty:
-    case ViewFilterOperand.IsInPast:
-    case ViewFilterOperand.IsInFuture:
-    case ViewFilterOperand.IsRelative:
+    case ViewFilterOperand.IS_TODAY:
+    case ViewFilterOperand.IS_NOT_EMPTY:
+    case ViewFilterOperand.IS_IN_PAST:
+    case ViewFilterOperand.IS_IN_FUTURE:
+    case ViewFilterOperand.IS_RELATIVE:
       return new Date();
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -145,13 +150,14 @@ const computeValueFromFilterNumber = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.GreaterThan:
+    //TODO: we shouln't create values from those filters as it makes no sense for the user
+    case ViewFilterOperand.GREATER_THAN_OR_EQUAL:
       return Number(value) + 1;
-    case ViewFilterOperand.LessThan:
+    case ViewFilterOperand.LESS_THAN_OR_EQUAL:
       return Number(value) - 1;
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       return Number(value);
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -163,7 +169,7 @@ const computeValueFromFilterBoolean = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Is:
+    case ViewFilterOperand.IS:
       return value === 'true';
     default:
       assertUnreachable(operand);
@@ -175,11 +181,11 @@ const computeValueFromFilterArray = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Contains:
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.CONTAINS:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       return value;
-    case ViewFilterOperand.DoesNotContain:
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.DOES_NOT_CONTAIN:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -197,22 +203,22 @@ const computeValueFromFilterRating = (
   }
 
   switch (operand) {
-    case ViewFilterOperand.Is:
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.IS:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       return option.value;
-    case ViewFilterOperand.GreaterThan: {
+    case ViewFilterOperand.GREATER_THAN_OR_EQUAL: {
       const plusOne = options?.find(
         (opt) => opt.position === option.position + 1,
       )?.value;
       return plusOne ? plusOne : option.value;
     }
-    case ViewFilterOperand.LessThan: {
+    case ViewFilterOperand.LESS_THAN_OR_EQUAL: {
       const minusOne = options?.find(
         (opt) => opt.position === option.position - 1,
       )?.value;
       return minusOne ? minusOne : option.value;
     }
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -225,8 +231,8 @@ const computeValueFromFilterSelect = (
   options?: FieldMetadataItemOption[],
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Is:
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.IS:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       try {
         const valueParsed = parseJson<string[]>(value)?.[0];
         const option = options?.find((option) => option.value === valueParsed);
@@ -234,11 +240,11 @@ const computeValueFromFilterSelect = (
           return undefined;
         }
         return option.value;
-      } catch (error) {
+      } catch {
         return undefined;
       }
-    case ViewFilterOperand.IsNot:
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.IS_NOT:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -250,16 +256,16 @@ const computeValueFromFilterMultiSelect = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Contains:
-    case ViewFilterOperand.IsNotEmpty:
+    case ViewFilterOperand.CONTAINS:
+    case ViewFilterOperand.IS_NOT_EMPTY:
       try {
         const parsedValue = parseJson<string[]>(value);
         return parsedValue ? parsedValue : undefined;
-      } catch (error) {
+      } catch {
         return undefined;
       }
-    case ViewFilterOperand.DoesNotContain:
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.DOES_NOT_CONTAIN:
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -269,20 +275,17 @@ const computeValueFromFilterMultiSelect = (
 const computeValueFromFilterRelation = (
   operand: RecordFilterToRecordInputOperand<'RELATION'>,
   value: string,
-  relationType?: RelationDefinitionType,
+  relationType?: RelationType,
   currentWorkspaceMember?: CurrentWorkspaceMember,
   label?: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.Is: {
+    case ViewFilterOperand.IS: {
       const parsedValue = parseJson<{
         isCurrentWorkspaceMemberSelected: boolean;
         selectedRecordIds: string[];
       }>(value);
-      if (
-        relationType === RelationDefinitionType.MANY_TO_ONE ||
-        relationType === RelationDefinitionType.ONE_TO_ONE
-      ) {
+      if (relationType === RelationType.MANY_TO_ONE) {
         if (label === 'Assignee') {
           return parsedValue?.isCurrentWorkspaceMemberSelected
             ? currentWorkspaceMember?.id
@@ -293,9 +296,9 @@ const computeValueFromFilterRelation = (
       }
       return undefined; //todo
     }
-    case ViewFilterOperand.IsNot:
-    case ViewFilterOperand.IsNotEmpty: // todo
-    case ViewFilterOperand.IsEmpty:
+    case ViewFilterOperand.IS_NOT:
+    case ViewFilterOperand.IS_NOT_EMPTY: // todo
+    case ViewFilterOperand.IS_EMPTY:
       return undefined;
     default:
       assertUnreachable(operand);
@@ -307,7 +310,19 @@ const computeValueFromFilterTSVector = (
   value: string,
 ) => {
   switch (operand) {
-    case ViewFilterOperand.VectorSearch:
+    case ViewFilterOperand.VECTOR_SEARCH:
+      return value;
+    default:
+      assertUnreachable(operand);
+  }
+};
+
+const computeValueFromFilterUUID = (
+  operand: RecordFilterToRecordInputOperand<'UUID'>,
+  value: string,
+) => {
+  switch (operand) {
+    case ViewFilterOperand.IS:
       return value;
     default:
       assertUnreachable(operand);

@@ -1,5 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 
+import { SupportDriver } from 'src/engine/core-modules/twenty-config/interfaces/support.interface';
+
+import {
+  type ModelId,
+  ModelProvider,
+} from 'src/engine/core-modules/ai/constants/ai-models.const';
 import { ClientConfigService } from 'src/engine/core-modules/client-config/services/client-config.service';
 
 import { ClientConfigController } from './client-config.controller';
@@ -42,6 +48,15 @@ describe('ClientConfigController', () => {
             },
           ],
         },
+        aiModels: [
+          {
+            modelId: 'gpt-4o' as ModelId,
+            label: 'GPT-4o',
+            provider: ModelProvider.OPENAI,
+            inputCostPer1kTokensInCredits: 2.5,
+            outputCostPer1kTokensInCredits: 10.0,
+          },
+        ],
         authProviders: {
           google: true,
           magicLink: false,
@@ -54,9 +69,8 @@ describe('ClientConfigController', () => {
         isEmailVerificationRequired: false,
         defaultSubdomain: 'app',
         frontDomain: 'localhost',
-        debugMode: true,
         support: {
-          supportDriver: 'none',
+          supportDriver: SupportDriver.NONE,
           supportFrontChatId: undefined,
         },
         sentry: {
@@ -81,6 +95,9 @@ describe('ClientConfigController', () => {
         isGoogleMessagingEnabled: false,
         isGoogleCalendarEnabled: false,
         isConfigVariablesInDbEnabled: false,
+        isImapSmtpCaldavEnabled: false,
+        calendarBookingPageId: undefined,
+        isTwoFactorAuthenticationEnabled: false,
       };
 
       jest
@@ -89,8 +106,8 @@ describe('ClientConfigController', () => {
 
       const result = await controller.getClientConfig();
 
-      expect(clientConfigService.getClientConfig).toHaveBeenCalled();
       expect(result).toEqual(mockClientConfig);
+      expect(clientConfigService.getClientConfig).toHaveBeenCalled();
     });
   });
 });

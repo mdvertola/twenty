@@ -1,17 +1,24 @@
+import { RelationOnDeleteAction } from 'twenty-shared/types';
+
 import { computeColumnName } from 'src/engine/metadata-modules/field-metadata/utils/compute-column-name.util';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
-import { RelationOnDeleteAction } from 'src/engine/metadata-modules/relation-metadata/relation-metadata.entity';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
 import {
   WorkspaceMigrationColumnActionType,
-  WorkspaceMigrationColumnCreate,
-  WorkspaceMigrationTableAction,
+  type WorkspaceMigrationColumnCreate,
+  type WorkspaceMigrationTableAction,
   WorkspaceMigrationTableActionType,
 } from 'src/engine/metadata-modules/workspace-migration/workspace-migration.entity';
 import { computeObjectTargetTable } from 'src/engine/utils/compute-object-target-table.util';
 
 export const buildMigrationsForCustomObjectRelations = (
-  createdObjectMetadata: ObjectMetadataEntity,
-  relatedObjectMetadataCollection: ObjectMetadataEntity[],
+  createdObjectMetadata: Pick<
+    ObjectMetadataItemWithFieldMaps,
+    'nameSingular' | 'isCustom'
+  >,
+  relatedObjectMetadataCollection: Pick<
+    ObjectMetadataItemWithFieldMaps,
+    'nameSingular' | 'isCustom'
+  >[],
 ): WorkspaceMigrationTableAction[] => {
   const migrations: WorkspaceMigrationTableAction[] = [];
 

@@ -1,27 +1,33 @@
 import { SEARCH_QUERY } from '@/command-menu/graphql/queries/search';
-import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
 import { usePerformCombinedFindManyRecords } from '@/object-record/multiple-objects/hooks/usePerformCombinedFindManyRecords';
 import { multipleRecordPickerIsLoadingComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerIsLoadingComponentState';
 import { multipleRecordPickerPaginationState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerPaginationState';
 import { multipleRecordPickerPickableMorphItemsComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerPickableMorphItemsComponentState';
 import { multipleRecordPickerSearchFilterComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerSearchFilterComponentState';
 import { multipleRecordPickerSearchableObjectMetadataItemsComponentState } from '@/object-record/record-picker/multiple-record-picker/states/multipleRecordPickerSearchableObjectMetadataItemsComponentState';
-import { searchRecordStoreComponentFamilyState } from '@/object-record/record-picker/multiple-record-picker/states/searchRecordStoreComponentFamilyState';
-import { RecordPickerPickableMorphItem } from '@/object-record/record-picker/types/RecordPickerPickableMorphItem';
-import { ApolloClient, useApolloClient } from '@apollo/client';
+import { searchRecordStoreFamilyState } from '@/object-record/record-picker/multiple-record-picker/states/searchRecordStoreComponentFamilyState';
+import { sortMorphItems } from '@/object-record/record-picker/multiple-record-picker/utils/sortMorphItems';
+import { type RecordPickerPickableMorphItem } from '@/object-record/record-picker/types/RecordPickerPickableMorphItem';
+import { getObjectPermissionsFromMapByObjectMetadataId } from '@/settings/roles/role-permissions/objects-permissions/utils/getObjectPermissionsFromMapByObjectMetadataId';
+import { type ApolloClient } from '@apollo/client';
 import { isNonEmptyArray } from '@sniptt/guards';
 import { useRecoilCallback } from 'recoil';
 import { capitalize, isDefined } from 'twenty-shared/utils';
-import { SearchRecord } from '~/generated-metadata/graphql';
-import { SearchResultEdge } from '~/generated/graphql';
+import { type SearchRecord } from '~/generated-metadata/graphql';
+import { type SearchResultEdge } from '~/generated/graphql';
 
 const MULTIPLE_RECORD_PICKER_PAGE_SIZE = 30;
 
 export const useMultipleRecordPickerPerformSearch = () => {
-  const client = useApolloClient();
+  const apolloCoreClient = useApolloCoreClient();
 
   const { performCombinedFindManyRecords } =
     usePerformCombinedFindManyRecords();
+
+  const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
 
   const performSearch = useRecoilCallback(
     ({ snapshot, set }) =>
@@ -97,14 +103,23 @@ export const useMultipleRecordPickerPerformSearch = () => {
           ({ isSelected }) => isSelected,
         );
 
+        const filteredSearchableObjectMetadataItems =
+          searchableObjectMetadataItems.filter(
+            (objectMetadataItem) =>
+              getObjectPermissionsFromMapByObjectMetadataId({
+                objectPermissionsByObjectMetadataId,
+                objectMetadataId: objectMetadataItem.id,
+              }).canReadObjectRecords === true,
+          );
+
         const [
           searchRecordsFilteredOnPickedRecords,
           searchRecordsExcludingPickedRecords,
           pageInfo,
         ] = await performSearchQueries({
-          client,
+          client: apolloCoreClient,
           searchFilter,
-          searchableObjectMetadataItems,
+          searchableObjectMetadataItems: filteredSearchableObjectMetadataItems,
           pickedRecordIds: selectedPickableMorphItems.map(
             ({ recordId }) => recordId,
           ),
@@ -210,10 +225,11 @@ export const useMultipleRecordPickerPerformSearch = () => {
             ({ recordId, objectNameSingular }) => ({
               isMatchingSearchFilter: true,
               isSelected: true,
-              objectMetadataId: searchableObjectMetadataItems.find(
-                (objectMetadata) =>
-                  objectMetadata.nameSingular === objectNameSingular,
-              )?.id,
+              objectMetadataId:
+                searchableObjectMetadataItems.find(
+                  (objectMetadata) =>
+                    objectMetadata.nameSingular === objectNameSingular,
+                )?.id ?? '',
               recordId,
             }),
           ),
@@ -221,10 +237,11 @@ export const useMultipleRecordPickerPerformSearch = () => {
             ({ recordId, objectNameSingular }) => ({
               isMatchingSearchFilter: true,
               isSelected: false,
-              objectMetadataId: searchableObjectMetadataItems.find(
-                (objectMetadata) =>
-                  objectMetadata.nameSingular === objectNameSingular,
-              )?.id,
+              objectMetadataId:
+                searchableObjectMetadataItems.find(
+                  (objectMetadata) =>
+                    objectMetadata.nameSingular === objectNameSingular,
+                )?.id ?? '',
               recordId,
             }),
           ),
@@ -244,11 +261,16 @@ export const useMultipleRecordPickerPerformSearch = () => {
             )
           : newMorphItems;
 
+        const sortedMorphItems = sortMorphItems(morphItems, [
+          ...searchRecordsFilteredOnPickedRecords,
+          ...searchRecordsExcludingPickedRecords,
+        ]);
+
         set(
           multipleRecordPickerPickableMorphItemsComponentState.atomFamily({
             instanceId: multipleRecordPickerInstanceId,
           }),
-          morphItems,
+          sortedMorphItems,
         );
 
         const searchRecords = [
@@ -258,10 +280,7 @@ export const useMultipleRecordPickerPerformSearch = () => {
 
         searchRecords.forEach((searchRecord) => {
           set(
-            searchRecordStoreComponentFamilyState.atomFamily({
-              instanceId: multipleRecordPickerInstanceId,
-              familyKey: searchRecord.recordId,
-            }),
+            searchRecordStoreFamilyState(searchRecord.recordId),
             searchRecord,
           );
         });
@@ -324,16 +343,10 @@ export const useMultipleRecordPickerPerformSearch = () => {
                     return;
                   }
 
-                  set(
-                    searchRecordStoreComponentFamilyState.atomFamily({
-                      instanceId: multipleRecordPickerInstanceId,
-                      familyKey: objectRecord.id,
-                    }),
-                    {
-                      ...searchRecord,
-                      record: objectRecord,
-                    },
-                  );
+                  set(searchRecordStoreFamilyState(objectRecord.id), {
+                    ...searchRecord,
+                    record: objectRecord,
+                  });
                 });
             },
           );
@@ -357,7 +370,11 @@ export const useMultipleRecordPickerPerformSearch = () => {
           false,
         );
       },
-    [client, performCombinedFindManyRecords],
+    [
+      apolloCoreClient,
+      performCombinedFindManyRecords,
+      objectPermissionsByObjectMetadataId,
+    ],
   );
 
   return { performSearch };

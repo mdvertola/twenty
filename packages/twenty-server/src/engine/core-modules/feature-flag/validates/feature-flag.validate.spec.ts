@@ -1,20 +1,20 @@
 import { featureFlagValidator } from 'src/engine/core-modules/feature-flag/validates/feature-flag.validate';
-import { CustomException } from 'src/utils/custom-exception';
+import { UnknownException } from 'src/utils/custom-exception';
 
 describe('featureFlagValidator', () => {
   describe('assertIsFeatureFlagKey', () => {
     it('should not throw error if featureFlagKey is valid', () => {
       expect(() =>
         featureFlagValidator.assertIsFeatureFlagKey(
-          'IS_WORKFLOW_ENABLED',
-          new CustomException('Error', 'Error'),
+          'IS_AI_ENABLED',
+          new UnknownException('Error', 'Error'),
         ),
       ).not.toThrow();
     });
 
     it('should throw error if featureFlagKey is invalid', () => {
       const invalidKey = 'InvalidKey';
-      const exception = new CustomException('Error', 'Error');
+      const exception = new UnknownException('Error', 'Error');
 
       expect(() =>
         featureFlagValidator.assertIsFeatureFlagKey(invalidKey, exception),

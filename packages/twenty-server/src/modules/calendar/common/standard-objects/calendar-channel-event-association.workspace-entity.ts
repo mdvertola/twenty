@@ -1,9 +1,8 @@
 import { msg } from '@lingui/core/macro';
-import { FieldMetadataType } from 'twenty-shared/types';
+import { FieldMetadataType, RelationOnDeleteAction } from 'twenty-shared/types';
 
 import { RelationType } from 'src/engine/metadata-modules/field-metadata/interfaces/relation-type.interface';
 import { Relation } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/relation.interface';
-import { RelationOnDeleteAction } from 'src/engine/metadata-modules/field-metadata/interfaces/relation-on-delete-action.interface';
 
 import { BaseWorkspaceEntity } from 'src/engine/twenty-orm/base.workspace-entity';
 import { WorkspaceEntity } from 'src/engine/twenty-orm/decorators/workspace-entity.decorator';
@@ -20,6 +19,7 @@ import { CalendarEventWorkspaceEntity } from 'src/modules/calendar/common/standa
 
 @WorkspaceEntity({
   standardId: STANDARD_OBJECT_IDS.calendarChannelEventAssociation,
+
   namePlural: 'calendarChannelEventAssociations',
   labelSingular: msg`Calendar Channel Event Association`,
   labelPlural: msg`Calendar Channel Event Associations`,
@@ -29,6 +29,11 @@ import { CalendarEventWorkspaceEntity } from 'src/modules/calendar/common/standa
 @WorkspaceIsSystem()
 @WorkspaceIsNotAuditLogged()
 export class CalendarChannelEventAssociationWorkspaceEntity extends BaseWorkspaceEntity {
+  /**
+   * External ID of the calendar event. Comes from the provider's API, is unique per connected account.
+   * Used by the provider to identify the event in their system.
+   * So two External ID can be related to the same event sharing the same iCalUID.
+   */
   @WorkspaceField({
     standardId:
       CALENDAR_CHANNEL_EVENT_ASSOCIATION_STANDARD_FIELD_IDS.eventExternalId,

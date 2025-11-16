@@ -1,23 +1,25 @@
-import { MatchColumnsStepProps } from '@/spreadsheet-import/steps/components/MatchColumnsStep/MatchColumnsStep';
+import { type MatchColumnsStepProps } from '@/spreadsheet-import/steps/components/MatchColumnsStep/MatchColumnsStep';
 
-import { SpreadsheetImportField } from '@/spreadsheet-import/types';
-import { SpreadsheetColumn } from '@/spreadsheet-import/types/SpreadsheetColumn';
+import { type SpreadsheetImportField } from '@/spreadsheet-import/types';
+import { type SpreadsheetColumn } from '@/spreadsheet-import/types/SpreadsheetColumn';
 import { SpreadsheetColumnType } from '@/spreadsheet-import/types/SpreadsheetColumnType';
-import { SpreadsheetMatchedOptions } from '@/spreadsheet-import/types/SpreadsheetMatchedOptions';
-import { z } from 'zod';
+import { type SpreadsheetMatchedOptions } from '@/spreadsheet-import/types/SpreadsheetMatchedOptions';
+import { spreadsheetImportParseMultiSelectOptionsOrThrow } from '@/spreadsheet-import/utils/spreadsheetImportParseMultiSelectOptionsOrThrow';
+import { t } from '@lingui/core/macro';
+import { isDefined } from 'twenty-shared/utils';
 import { uniqueEntries } from './uniqueEntries';
 
-export const setColumn = <T extends string>(
-  oldColumn: SpreadsheetColumn<T>,
-  field?: SpreadsheetImportField<T>,
+export const setColumn = (
+  oldColumn: SpreadsheetColumn,
+  field?: SpreadsheetImportField,
   data?: MatchColumnsStepProps['data'],
-): SpreadsheetColumn<T> => {
+): SpreadsheetColumn => {
   if (field?.fieldType.type === 'select') {
     const fieldOptions = field.fieldType.options;
     const uniqueData = uniqueEntries(
       data || [],
       oldColumn.index,
-    ) as SpreadsheetMatchedOptions<T>[];
+    ) as SpreadsheetMatchedOptions[];
 
     const matchedOptions = uniqueData.map((record) => {
       const value = fieldOptions.find(
@@ -26,8 +28,8 @@ export const setColumn = <T extends string>(
           fieldOption.label === record.entry,
       )?.value;
       return value
-        ? ({ ...record, value } as SpreadsheetMatchedOptions<T>)
-        : (record as SpreadsheetMatchedOptions<T>);
+        ? ({ ...record, value } as SpreadsheetMatchedOptions)
+        : (record as SpreadsheetMatchedOptions);
     });
     const allMatched =
       matchedOptions.filter((o) => o.value).length === uniqueData?.length;
@@ -45,21 +47,28 @@ export const setColumn = <T extends string>(
   if (field?.fieldType.type === 'multiSelect') {
     const fieldOptions = field.fieldType.options;
 
-    const entries = [
-      ...new Set(
-        data
-          ?.flatMap((row) => {
-            try {
+    let entries: string[] = [];
+    try {
+      entries = [
+        ...new Set(
+          data
+            ?.flatMap((row) => {
               const value = row[oldColumn.index];
-              const options = JSON.parse(z.string().parse(value));
-              return z.array(z.string()).parse(options);
-            } catch {
-              return [];
-            }
-          })
-          .filter((entry) => typeof entry === 'string'),
-      ),
-    ];
+              if (!isDefined(value)) return [];
+              return spreadsheetImportParseMultiSelectOptionsOrThrow(value);
+            })
+            .filter((entry) => typeof entry === 'string'),
+        ),
+      ];
+    } catch {
+      return {
+        index: oldColumn.index,
+        header: oldColumn.header,
+        type: SpreadsheetColumnType.matchedError,
+        value: field.key,
+        errorMessage: t`column data is not compatible with Multi-Select. Format required is '["option1", "option2"]' or option1,option2.`,
+      };
+    }
 
     const matchedOptions = entries.map((entry) => {
       const value = fieldOptions.find(
@@ -67,8 +76,8 @@ export const setColumn = <T extends string>(
           fieldOption.value === entry || fieldOption.label === entry,
       )?.value;
       return value
-        ? ({ entry, value } as SpreadsheetMatchedOptions<T>)
-        : ({ entry } as SpreadsheetMatchedOptions<T>);
+        ? ({ entry, value } as SpreadsheetMatchedOptions)
+        : ({ entry } as SpreadsheetMatchedOptions);
     });
     const areAllMatched =
       matchedOptions.filter((option) => option.value).length ===

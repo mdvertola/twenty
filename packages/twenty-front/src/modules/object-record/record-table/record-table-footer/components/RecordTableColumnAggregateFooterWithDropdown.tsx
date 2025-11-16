@@ -1,10 +1,10 @@
-import { useCurrentContentId } from '@/dropdown/hooks/useCurrentContentId';
+import { useDropdownContextCurrentContentId } from '@/dropdown-context-state-management/hooks/useDropdownContextCurrentContentId';
 import { useRecordTableContextOrThrow } from '@/object-record/record-table/contexts/RecordTableContext';
 import { RecordTableColumnAggregateFooterCellContext } from '@/object-record/record-table/record-table-footer/components/RecordTableColumnAggregateFooterCellContext';
 import { RecordTableColumnAggregateFooterDropdownContent } from '@/object-record/record-table/record-table-footer/components/RecordTableColumnAggregateFooterDropdownContent';
 import { RecordTableColumnAggregateFooterDropdownContext } from '@/object-record/record-table/record-table-footer/components/RecordTableColumnAggregateFooterDropdownContext';
 import { RecordTableColumnAggregateFooterValueCell } from '@/object-record/record-table/record-table-footer/components/RecordTableColumnAggregateFooterValueCell';
-import { RecordTableFooterAggregateContentId } from '@/object-record/record-table/record-table-footer/types/RecordTableFooterAggregateContentId';
+import { type RecordTableFooterAggregateContentId } from '@/object-record/record-table/record-table-footer/types/RecordTableFooterAggregateContentId';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { useToggleScrollWrapper } from '@/ui/utilities/scroll/hooks/useToggleScrollWrapper';
 import { useCallback, useContext } from 'react';
@@ -19,7 +19,7 @@ export const RecordTableColumnFooterWithDropdown = ({
   isFirstCell,
 }: RecordTableColumnFooterWithDropdownProps) => {
   const { currentContentId, handleContentChange, handleResetContent } =
-    useCurrentContentId<RecordTableFooterAggregateContentId>();
+    useDropdownContextCurrentContentId<RecordTableFooterAggregateContentId>();
 
   const { fieldMetadataId } = useContext(
     RecordTableColumnAggregateFooterCellContext,
@@ -76,7 +76,6 @@ export const RecordTableColumnFooterWithDropdown = ({
       }
       dropdownOffset={{ x: -1 }}
       dropdownPlacement="bottom-start"
-      dropdownHotkeyScope={{ scope: dropdownId }}
     />
   );
 };

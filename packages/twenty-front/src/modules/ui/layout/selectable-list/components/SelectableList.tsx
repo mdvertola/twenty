@@ -1,10 +1,10 @@
-import { ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 import { useSelectableListHotKeys } from '@/ui/layout/selectable-list/hooks/internal/useSelectableListHotKeys';
 import { SelectableListComponentInstanceContext } from '@/ui/layout/selectable-list/states/contexts/SelectableListComponentInstanceContext';
 import { SelectableListContextProvider } from '@/ui/layout/selectable-list/states/contexts/SelectableListContext';
 import { selectableItemIdsComponentState } from '@/ui/layout/selectable-list/states/selectableItemIdsComponentState';
-import { useSetRecoilComponentStateV2 } from '@/ui/utilities/state/component-state/hooks/useSetRecoilComponentStateV2';
+import { useSetRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useSetRecoilComponentState';
 import { isDefined } from 'twenty-shared/utils';
 import { arrayToChunks } from '~/utils/array/arrayToChunks';
 
@@ -13,21 +13,21 @@ type SelectableListProps = {
   selectableItemIdArray?: string[];
   selectableItemIdMatrix?: string[][];
   onSelect?: (selected: string) => void;
-  hotkeyScope: string;
   selectableListInstanceId: string;
+  focusId: string;
 };
 
 export const SelectableList = ({
   children,
-  hotkeyScope,
   selectableItemIdArray,
   selectableItemIdMatrix,
   selectableListInstanceId,
   onSelect,
+  focusId,
 }: SelectableListProps) => {
-  useSelectableListHotKeys(selectableListInstanceId, hotkeyScope, onSelect);
+  useSelectableListHotKeys(selectableListInstanceId, focusId, onSelect);
 
-  const setSelectableItemIds = useSetRecoilComponentStateV2(
+  const setSelectableItemIds = useSetRecoilComponentState(
     selectableItemIdsComponentState,
     selectableListInstanceId,
   );
@@ -54,7 +54,7 @@ export const SelectableList = ({
         instanceId: selectableListInstanceId,
       }}
     >
-      <SelectableListContextProvider value={{ hotkeyScope }}>
+      <SelectableListContextProvider value={{ focusId }}>
         {children}
       </SelectableListContextProvider>
     </SelectableListComponentInstanceContext.Provider>

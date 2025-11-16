@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { FieldMetadataType } from 'twenty-shared/types';
-import { EntitySchemaRelationOptions } from 'typeorm';
+import { type EntitySchemaRelationOptions } from 'typeorm';
 
-import { FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
-import { ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
+import { type ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
 import { determineSchemaRelationDetails } from 'src/engine/twenty-orm/utils/determine-schema-relation-details.util';
-import { isFieldMetadataInterfaceOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
+import { isFieldMetadataEntityOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
 
 type EntitySchemaRelationMap = {
   [key: string]: EntitySchemaRelationOptions;
@@ -17,20 +17,27 @@ export class EntitySchemaRelationFactory {
   constructor() {}
 
   async create(
-    fieldMetadataMapByName: FieldMetadataMap,
+    objectMetadataItemWithFieldMaps: ObjectMetadataItemWithFieldMaps,
     objectMetadataMaps: ObjectMetadataMaps,
   ): Promise<EntitySchemaRelationMap> {
     const entitySchemaRelationMap: EntitySchemaRelationMap = {};
 
-    const fieldMetadataCollection = Object.values(fieldMetadataMapByName);
+    const fieldMetadataCollection = Object.values(
+      objectMetadataItemWithFieldMaps.fieldsById,
+    );
 
     for (const fieldMetadata of fieldMetadataCollection) {
-      if (
-        !isFieldMetadataInterfaceOfType(
+      const isRelation =
+        isFieldMetadataEntityOfType(
           fieldMetadata,
           FieldMetadataType.RELATION,
-        )
-      ) {
+        ) ||
+        isFieldMetadataEntityOfType(
+          fieldMetadata,
+          FieldMetadataType.MORPH_RELATION,
+        );
+
+      if (!isRelation) {
         continue;
       }
 
@@ -44,6 +51,15 @@ export class EntitySchemaRelationFactory {
         fieldMetadata,
         objectMetadataMaps,
       );
+
+      const targetObjectMetadata =
+        objectMetadataMaps.byId[fieldMetadata.relationTargetObjectMetadataId];
+
+      if (!targetObjectMetadata) {
+        throw new Error(
+          `Target object metadata not found for field ${fieldMetadata.name}`,
+        );
+      }
 
       entitySchemaRelationMap[fieldMetadata.name] = {
         type: schemaRelationDetails.relationType,

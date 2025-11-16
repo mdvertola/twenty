@@ -1,22 +1,18 @@
-import { InjectRepository } from '@nestjs/typeorm';
+import { assertIsDefinedOrThrow } from 'twenty-shared/utils';
 
-import { Repository } from 'typeorm';
+import { type WorkspacePostQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
 
-import { WorkspacePostQueryHookInstance } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/interfaces/workspace-query-hook.interface';
-
-import { DatabaseEventAction } from 'src/engine/api/graphql/graphql-query-runner/enums/database-event-action';
 import { WorkspaceQueryHook } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/decorators/workspace-query-hook.decorator';
 import { WorkspaceQueryHookType } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/types/workspace-query-hook.type';
-import { AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
+import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
 import { RecordPositionService } from 'src/engine/core-modules/record-position/services/record-position.service';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { TwentyORMManager } from 'src/engine/twenty-orm/twenty-orm.manager';
-import { WorkspaceEventEmitter } from 'src/engine/workspace-event-emitter/workspace-event-emitter';
 import {
   WorkflowVersionStatus,
-  WorkflowVersionWorkspaceEntity,
+  type WorkflowVersionWorkspaceEntity,
 } from 'src/modules/workflow/common/standard-objects/workflow-version.workspace-entity';
-import { WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
+import { type WorkflowWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow.workspace-entity';
+import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
 
 @WorkspaceQueryHook({
   key: `workflow.createOne`,
@@ -27,9 +23,6 @@ export class WorkflowCreateOnePostQueryHook
 {
   constructor(
     private readonly twentyORMManager: TwentyORMManager,
-    private readonly workspaceEventEmitter: WorkspaceEventEmitter,
-    @InjectRepository(ObjectMetadataEntity, 'metadata')
-    private readonly objectMetadataRepository: Repository<ObjectMetadataEntity>,
     private readonly recordPositionService: RecordPositionService,
   ) {}
 
@@ -38,6 +31,10 @@ export class WorkflowCreateOnePostQueryHook
     _objectName: string,
     payload: WorkflowWorkspaceEntity[],
   ): Promise<void> {
+    const workspace = authContext.workspace;
+
+    assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
     const workflow = payload[0];
 
     const workflowVersionRepository =
@@ -51,39 +48,14 @@ export class WorkflowCreateOnePostQueryHook
         isCustom: false,
         nameSingular: 'workflowVersion',
       },
-      workspaceId: authContext.workspace.id,
+      workspaceId: workspace.id,
     });
 
-    const workflowVersionToCreate = await workflowVersionRepository.create({
+    await workflowVersionRepository.insert({
       workflowId: workflow.id,
       status: WorkflowVersionStatus.DRAFT,
       name: 'v1',
       position,
-    });
-
-    await workflowVersionRepository.save(workflowVersionToCreate);
-
-    const objectMetadata = await this.objectMetadataRepository.findOneOrFail({
-      where: {
-        nameSingular: 'workflowVersion',
-        workspaceId: authContext.workspace.id,
-      },
-    });
-
-    this.workspaceEventEmitter.emitDatabaseBatchEvent({
-      objectMetadataNameSingular: 'workflowVersion',
-      action: DatabaseEventAction.CREATED,
-      events: [
-        {
-          userId: authContext.user?.id,
-          recordId: workflowVersionToCreate.id,
-          objectMetadata,
-          properties: {
-            after: workflowVersionToCreate,
-          },
-        },
-      ],
-      workspaceId: authContext.workspace.id,
     });
   }
 }

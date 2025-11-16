@@ -13,22 +13,10 @@ import {
 } from '@/object-record/record-table/record-table-cell/hooks/__mocks__/cell';
 import { useMoveHoverToCurrentCell } from '@/object-record/record-table/record-table-cell/hooks/useMoveHoverToCurrentCell';
 import { recordTableHoverPositionComponentState } from '@/object-record/record-table/states/recordTableHoverPositionComponentState';
-import { TableHotkeyScope } from '@/object-record/record-table/types/TableHotkeyScope';
-import { currentHotkeyScopeState } from '@/ui/utilities/hotkey/states/internal/currentHotkeyScopeState';
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
-  <RecoilRoot
-    initializeState={({ set }) => {
-      set(currentHotkeyScopeState, {
-        scope: TableHotkeyScope.TableFocus,
-        customScopes: {},
-      });
-    }}
-  >
-    <RecordTableComponentInstance
-      recordTableId="test-record-table-instance-id"
-      onColumnsChange={jest.fn()}
-    >
+  <RecoilRoot>
+    <RecordTableComponentInstance recordTableId="test-record-table-instance-id">
       <RecordTableRowContextProvider value={recordTableRowContextValue}>
         <RecordTableRowDraggableContextProvider
           value={recordTableRowDraggableContextValue}

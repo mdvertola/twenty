@@ -1,23 +1,26 @@
 import {
-  ComputedPartialFieldMetadata,
-  PartialComputedFieldMetadata,
-  PartialFieldMetadata,
+  type ComputedPartialFieldMetadata,
+  type PartialComputedFieldMetadata,
+  type PartialFieldMetadata,
 } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/partial-field-metadata.interface';
-import { WorkspaceSyncContext } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/workspace-sync-context.interface';
+import { type WorkspaceSyncContext } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/workspace-sync-context.interface';
 
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { createRelationDeterministicUuid } from 'src/engine/workspace-manager/workspace-sync-metadata/utils/create-deterministic-uuid.util';
 
 export const computeStandardFields = (
-  context: WorkspaceSyncContext,
+  _context: WorkspaceSyncContext,
   standardFieldMetadataCollection: (
     | PartialFieldMetadata
     | PartialComputedFieldMetadata
   )[],
   originalObjectMetadata: ObjectMetadataEntity,
   customObjectMetadataCollection: ObjectMetadataEntity[] = [],
-): ComputedPartialFieldMetadata[] => {
-  const fields: ComputedPartialFieldMetadata[] = [];
+): Omit<ComputedPartialFieldMetadata, 'createdAt' | 'updatedAt'>[] => {
+  const fields: Omit<
+    ComputedPartialFieldMetadata,
+    'createdAt' | 'updatedAt'
+  >[] = [];
 
   for (const partialFieldMetadata of standardFieldMetadataCollection) {
     // Relation from standard object to custom object
@@ -43,6 +46,18 @@ export const computeStandardFields = (
           ...rest,
           standardId: relationStandardId,
           defaultValue: null,
+          isNullable: true,
+          isLabelSyncedWithName: true,
+          isUnique: null,
+          isUIReadOnly: false,
+          options: null,
+          relationTargetFieldMetadata: null,
+          relationTargetFieldMetadataId: null,
+          relationTargetObjectMetadata: null,
+          relationTargetObjectMetadataId: null,
+          settings: null,
+          standardOverrides: null,
+          morphId: null,
         });
       }
     } else {

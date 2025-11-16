@@ -1,11 +1,11 @@
 import { SelectInput as SelectBaseInput } from '@/ui/input/components/SelectInput';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
-import { SelectOption } from 'twenty-ui/input';
+import { type SelectOption } from 'twenty-ui/input';
 
 type SelectInputProps = {
   selectableListComponentInstanceId: string;
   selectableItemIdArray: string[];
-  hotkeyScope: string;
+  focusId: string;
   onEnter: (itemId: string) => void;
   onOptionSelected: (selectedOption: SelectOption) => void;
   options: SelectOption[];
@@ -14,12 +14,13 @@ type SelectInputProps = {
   onFilterChange?: ((filteredOptions: SelectOption[]) => void) | undefined;
   onClear?: (() => void) | undefined;
   clearLabel?: string;
+  onAddSelectOption?: (optionName: string) => void;
 };
 
 export const SelectInput = ({
   selectableListComponentInstanceId,
   selectableItemIdArray,
-  hotkeyScope,
+  focusId,
   onOptionSelected,
   options,
   onCancel,
@@ -27,12 +28,13 @@ export const SelectInput = ({
   onFilterChange,
   onClear,
   clearLabel,
+  onAddSelectOption,
 }: SelectInputProps) => {
   return (
     <SelectableList
       selectableListInstanceId={selectableListComponentInstanceId}
       selectableItemIdArray={selectableItemIdArray}
-      hotkeyScope={hotkeyScope}
+      focusId={focusId}
     >
       <SelectBaseInput
         onOptionSelected={onOptionSelected}
@@ -42,7 +44,8 @@ export const SelectInput = ({
         onFilterChange={onFilterChange}
         onClear={onClear}
         clearLabel={clearLabel}
-        hotkeyScope={hotkeyScope}
+        focusId={focusId}
+        onAddSelectOption={onAddSelectOption}
       />
     </SelectableList>
   );

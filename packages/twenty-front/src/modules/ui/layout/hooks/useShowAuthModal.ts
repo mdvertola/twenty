@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
-import { AppPath } from '@/types/AppPath';
 import { useLocation } from 'react-router-dom';
+import { AppPath } from 'twenty-shared/types';
 import { isMatchingLocation } from '~/utils/isMatchingLocation';
 
 export const useShowAuthModal = () => {
@@ -19,7 +19,9 @@ export const useShowAuthModal = () => {
       isMatchingLocation(location, AppPath.SignInUp) ||
       isMatchingLocation(location, AppPath.CreateWorkspace) ||
       isMatchingLocation(location, AppPath.PlanRequired) ||
-      isMatchingLocation(location, AppPath.PlanRequiredSuccess)
+      isMatchingLocation(location, AppPath.PlanRequiredSuccess) ||
+      isMatchingLocation(location, AppPath.BookCallDecision) ||
+      isMatchingLocation(location, AppPath.BookCall)
     ) {
       return true;
     }

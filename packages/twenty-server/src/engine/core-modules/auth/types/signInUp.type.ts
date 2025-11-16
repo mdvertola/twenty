@@ -1,13 +1,18 @@
-import { APP_LOCALES } from 'twenty-shared/translations';
+import { type APP_LOCALES } from 'twenty-shared/translations';
 
-import { AppToken } from 'src/engine/core-modules/app-token/app-token.entity';
-import { User } from 'src/engine/core-modules/user/user.entity';
-import { WorkspaceAuthProvider } from 'src/engine/core-modules/workspace/types/workspace.type';
-import { Workspace } from 'src/engine/core-modules/workspace/workspace.entity';
+import { type AppTokenEntity } from 'src/engine/core-modules/app-token/app-token.entity';
+import { type UserEntity } from 'src/engine/core-modules/user/user.entity';
+import { type AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
+import { type WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
+
+export type SocialSSOSignInUpActionType =
+  | 'create-new-workspace'
+  | 'list-available-workspaces'
+  | 'join-workspace';
 
 export type SignInUpBaseParams = {
-  invitation?: AppToken;
-  workspace?: Workspace | null;
+  invitation?: AppTokenEntity;
+  workspace?: WorkspaceEntity | null;
   billingCheckoutSessionState?: string | null;
 };
 
@@ -18,15 +23,16 @@ export type SignInUpNewUserPayload = {
   picture?: string | null;
   passwordHash?: string | null;
   locale?: keyof typeof APP_LOCALES | null;
+  isEmailAlreadyVerified?: boolean;
 };
 
 export type PartialUserWithPicture = {
   picture?: string;
-} & Partial<User>;
+} & Partial<UserEntity>;
 
 export type ExistingUserOrNewUser = {
   userData:
-    | { type: 'existingUser'; existingUser: User }
+    | { type: 'existingUser'; existingUser: UserEntity }
     | {
         type: 'newUser';
         newUserPayload: SignInUpNewUserPayload;
@@ -35,7 +41,7 @@ export type ExistingUserOrNewUser = {
 
 export type ExistingUserOrPartialUserWithPicture = {
   userData:
-    | { type: 'existingUser'; existingUser: User }
+    | { type: 'existingUser'; existingUser: UserEntity }
     | {
         type: 'newUserWithPicture';
         newUserWithPicture: PartialUserWithPicture;
@@ -45,10 +51,10 @@ export type ExistingUserOrPartialUserWithPicture = {
 export type AuthProviderWithPasswordType = {
   authParams:
     | {
-        provider: Extract<WorkspaceAuthProvider, 'password'>;
+        provider: Extract<AuthProviderEnum, AuthProviderEnum.Password>;
         password: string;
       }
     | {
-        provider: Exclude<WorkspaceAuthProvider, 'password'>;
+        provider: Exclude<AuthProviderEnum, AuthProviderEnum.Password>;
       };
 };

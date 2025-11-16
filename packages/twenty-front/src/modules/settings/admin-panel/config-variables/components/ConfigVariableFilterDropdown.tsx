@@ -1,7 +1,8 @@
-import { ConfigVariableFilterCategory } from '@/settings/admin-panel/config-variables/types/ConfigVariableFilterCategory';
-import { ConfigVariableGroupFilter } from '@/settings/admin-panel/config-variables/types/ConfigVariableGroupFilter';
-import { ConfigVariableSourceFilter } from '@/settings/admin-panel/config-variables/types/ConfigVariableSourceFilter';
+import { type ConfigVariableFilterCategory } from '@/settings/admin-panel/config-variables/types/ConfigVariableFilterCategory';
+import { type ConfigVariableGroupFilter } from '@/settings/admin-panel/config-variables/types/ConfigVariableGroupFilter';
+import { type ConfigVariableSourceFilter } from '@/settings/admin-panel/config-variables/types/ConfigVariableSourceFilter';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
+import { t } from '@lingui/core/macro';
 import { useState } from 'react';
 import { IconSettings } from 'twenty-ui/display';
 import { Button } from 'twenty-ui/input';
@@ -41,12 +42,11 @@ export const ConfigVariableFilterDropdown = ({
         <Button
           variant="secondary"
           size="medium"
-          title="Options"
+          title={t`Options`}
           Icon={IconSettings}
         />
       }
       dropdownId="env-var-options-dropdown"
-      dropdownHotkeyScope={{ scope: 'env-var-options' }}
       dropdownOffset={{ x: 0, y: 10 }}
       dropdownComponents={
         <ConfigVariableOptionsDropdownContent

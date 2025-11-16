@@ -1,29 +1,50 @@
-export interface ObjectRecord {
-  id: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-}
+import {
+  type ObjectRecord,
+  type ObjectRecordGroupByDateGranularity,
+  type ObjectRecordOrderByForCompositeField,
+  type ObjectRecordOrderByForScalarField,
+} from 'twenty-shared/types';
 
-export type ObjectRecordFilter = {
+export type ObjectRecordFilter = Partial<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [Property in keyof ObjectRecord]: any;
-};
-
-export enum OrderByDirection {
-  AscNullsFirst = 'AscNullsFirst',
-  AscNullsLast = 'AscNullsLast',
-  DescNullsFirst = 'DescNullsFirst',
-  DescNullsLast = 'DescNullsLast',
-}
-
-export type ObjectRecordOrderBy = Array<{
-  [Property in keyof ObjectRecord]?:
-    | OrderByDirection
-    | Record<string, OrderByDirection>;
 }>;
+
+export type ObjectRecordGroupBy = Array<
+  | ObjectRecordGroupByForAtomicField
+  | ObjectRecordGroupByForCompositeField
+  | ObjectRecordGroupByForDateField
+>;
+
+export type ObjectRecordGroupByForAtomicField = Partial<{
+  [Property in keyof ObjectRecord]: boolean;
+}>;
+
+export type ObjectRecordGroupByForCompositeField = Partial<{
+  [Property in keyof ObjectRecord]: Record<string, boolean>;
+}>;
+
+export type ObjectRecordGroupByForDateField = Partial<{
+  [Property in keyof ObjectRecord]: {
+    granularity: ObjectRecordGroupByDateGranularity;
+  };
+}>;
+
+export type ObjectRecordOrderBy = Array<
+  ObjectRecordOrderByForScalarField | ObjectRecordOrderByForCompositeField
+>;
+
+export type ObjectRecordCursorLeafScalarValue = string | number | boolean;
+export type ObjectRecordCursorLeafCompositeValue = Record<
+  string,
+  ObjectRecordCursorLeafScalarValue
+>;
+
+export type ObjectRecordCursor = {
+  [Property in keyof ObjectRecord]?:
+    | ObjectRecordCursorLeafScalarValue
+    | ObjectRecordCursorLeafCompositeValue;
+};
 
 export interface ObjectRecordDuplicateCriteria {
   objectName: string;

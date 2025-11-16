@@ -1,9 +1,10 @@
-import { Injectable, Type } from '@nestjs/common';
+import { Injectable, type Type } from '@nestjs/common';
 
-import { ObjectLiteral } from 'typeorm';
+import { type ObjectLiteral } from 'typeorm';
 
 import { WorkspaceDatasourceFactory } from 'src/engine/twenty-orm/factories/workspace-datasource.factory';
-import { WorkspaceRepository } from 'src/engine/twenty-orm/repository/workspace.repository';
+import { type WorkspaceRepository } from 'src/engine/twenty-orm/repository/workspace.repository';
+import { type RolePermissionConfig } from 'src/engine/twenty-orm/types/role-permission-config';
 import { convertClassNameToObjectMetadataName } from 'src/engine/workspace-manager/workspace-sync-metadata/utils/convert-class-to-object-metadata-name.util';
 
 @Injectable()
@@ -15,68 +16,43 @@ export class TwentyORMGlobalManager {
   async getRepositoryForWorkspace<T extends ObjectLiteral>(
     workspaceId: string,
     workspaceEntity: Type<T>,
-    options?: {
-      shouldBypassPermissionChecks?: boolean;
-      shouldFailIfMetadataNotFound?: boolean;
-    },
+    options?: RolePermissionConfig,
   ): Promise<WorkspaceRepository<T>>;
 
   async getRepositoryForWorkspace<T extends ObjectLiteral>(
     workspaceId: string,
     objectMetadataName: string,
-    options?: {
-      shouldBypassPermissionChecks?: boolean;
-      shouldFailIfMetadataNotFound?: boolean;
-    },
+    options?: RolePermissionConfig,
   ): Promise<WorkspaceRepository<T>>;
 
   async getRepositoryForWorkspace<T extends ObjectLiteral>(
     workspaceId: string,
-    workspaceEntityOrobjectMetadataName: Type<T> | string,
-    options: {
-      shouldBypassPermissionChecks?: boolean;
-      shouldFailIfMetadataNotFound?: boolean;
-    } = {
-      shouldBypassPermissionChecks: false,
-      shouldFailIfMetadataNotFound: true,
-    },
+    workspaceEntityOrObjectMetadataName: Type<T> | string,
+    options?: RolePermissionConfig,
   ): Promise<WorkspaceRepository<T>> {
     let objectMetadataName: string;
 
-    if (typeof workspaceEntityOrobjectMetadataName === 'string') {
-      objectMetadataName = workspaceEntityOrobjectMetadataName;
+    if (typeof workspaceEntityOrObjectMetadataName === 'string') {
+      objectMetadataName = workspaceEntityOrObjectMetadataName;
     } else {
       objectMetadataName = convertClassNameToObjectMetadataName(
-        workspaceEntityOrobjectMetadataName.name,
+        workspaceEntityOrObjectMetadataName.name,
       );
     }
 
-    const workspaceDataSource = await this.workspaceDataSourceFactory.create(
-      workspaceId,
-      null,
-      options.shouldFailIfMetadataNotFound,
-    );
+    const workspaceDataSource =
+      await this.workspaceDataSourceFactory.create(workspaceId);
 
     const repository = workspaceDataSource.getRepository<T>(
       objectMetadataName,
-      options.shouldBypassPermissionChecks,
+      options,
     );
 
     return repository;
   }
 
-  async getDataSourceForWorkspace({
-    workspaceId,
-    shouldFailIfMetadataNotFound = true,
-  }: {
-    workspaceId: string;
-    shouldFailIfMetadataNotFound?: boolean;
-  }) {
-    return await this.workspaceDataSourceFactory.create(
-      workspaceId,
-      null,
-      shouldFailIfMetadataNotFound,
-    );
+  async getDataSourceForWorkspace({ workspaceId }: { workspaceId: string }) {
+    return await this.workspaceDataSourceFactory.create(workspaceId);
   }
 
   async destroyDataSourceForWorkspace(workspaceId: string) {

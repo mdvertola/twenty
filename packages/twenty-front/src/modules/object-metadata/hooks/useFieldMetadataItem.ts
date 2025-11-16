@@ -1,10 +1,8 @@
-import { useDeleteOneRelationMetadataItem } from '@/object-metadata/hooks/useDeleteOneRelationMetadataItem';
-import { Field, FieldMetadataType } from '~/generated-metadata/graphql';
+import { type Field } from '~/generated-metadata/graphql';
 
-import { FieldMetadataItem } from '../types/FieldMetadataItem';
 import { formatFieldMetadataItemInput } from '../utils/formatFieldMetadataItemInput';
 
-import { isDefined } from 'twenty-shared/utils';
+import { type RelationCreationPayload } from 'twenty-shared/types';
 import { useCreateOneFieldMetadataItem } from './useCreateOneFieldMetadataItem';
 import { useDeleteOneFieldMetadataItem } from './useDeleteOneFieldMetadataItem';
 import { useUpdateOneFieldMetadataItem } from './useUpdateOneFieldMetadataItem';
@@ -13,7 +11,6 @@ export const useFieldMetadataItem = () => {
   const { createOneFieldMetadataItem } = useCreateOneFieldMetadataItem();
   const { updateOneFieldMetadataItem } = useUpdateOneFieldMetadataItem();
   const { deleteOneFieldMetadataItem } = useDeleteOneFieldMetadataItem();
-  const { deleteOneRelationMetadataItem } = useDeleteOneRelationMetadataItem();
 
   const createMetadataField = (
     input: Pick<
@@ -29,6 +26,8 @@ export const useFieldMetadataItem = () => {
       | 'isLabelSyncedWithName'
     > & {
       objectMetadataId: string;
+      relationCreationPayload?: RelationCreationPayload;
+      morphRelationsCreationPayload?: RelationCreationPayload[];
     },
   ) => {
     const formattedInput = formatFieldMetadataItemInput(input);
@@ -40,6 +39,8 @@ export const useFieldMetadataItem = () => {
       label: formattedInput.label ?? '',
       name: formattedInput.name ?? '',
       isLabelSyncedWithName: formattedInput.isLabelSyncedWithName ?? true,
+      relationCreationPayload: input.relationCreationPayload,
+      morphRelationsCreationPayload: input.morphRelationsCreationPayload,
     });
   };
 
@@ -63,19 +64,10 @@ export const useFieldMetadataItem = () => {
       updatePayload: { isActive: false },
     });
 
-  const deleteMetadataField = (metadataField: FieldMetadataItem) => {
-    return metadataField.type === FieldMetadataType.RELATION &&
-      !isDefined(metadataField.settings?.relationType)
-      ? deleteOneRelationMetadataItem(
-          metadataField.relationDefinition?.relationId,
-        )
-      : deleteOneFieldMetadataItem(metadataField.id);
-  };
-
   return {
     activateMetadataField,
     createMetadataField,
     deactivateMetadataField,
-    deleteMetadataField,
+    deleteMetadataField: deleteOneFieldMetadataItem,
   };
 };

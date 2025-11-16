@@ -1,9 +1,7 @@
 import gql from 'graphql-tag';
 import request from 'supertest';
 import { makeGraphqlAPIRequest } from 'test/integration/graphql/utils/make-graphql-api-request.util';
-import { updateFeatureFlagFactory } from 'test/integration/graphql/utils/update-feature-flag-factory.util';
 
-import { SEED_APPLE_WORKSPACE_ID } from 'src/database/typeorm-seeds/core/workspaces';
 import { BillingPlanKey } from 'src/engine/core-modules/billing/enums/billing-plan-key.enum';
 import { ErrorCode } from 'src/engine/core-modules/graphql/utils/graphql-errors.util';
 import { PermissionsExceptionMessage } from 'src/engine/metadata-modules/permissions/permissions.exception';
@@ -35,14 +33,6 @@ describe('workspace permissions', () => {
   });
 
   afterAll(async () => {
-    const disablePermissionsQuery = updateFeatureFlagFactory(
-      SEED_APPLE_WORKSPACE_ID,
-      'IS_PERMISSIONS_ENABLED',
-      false,
-    );
-
-    await makeGraphqlAPIRequest(disablePermissionsQuery);
-
     // Restore workspace state
     const restoreQuery = gql`
       mutation updateWorkspace {
@@ -79,7 +69,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -109,7 +99,7 @@ describe('workspace permissions', () => {
 
         return client
           .post('/graphql')
-          .set('Authorization', `Bearer ${ADMIN_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JANE_ADMIN_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -138,7 +128,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -169,7 +159,7 @@ describe('workspace permissions', () => {
 
         return client
           .post('/graphql')
-          .set('Authorization', `Bearer ${ADMIN_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JANE_ADMIN_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -198,7 +188,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -229,7 +219,7 @@ describe('workspace permissions', () => {
 
         return client
           .post('/graphql')
-          .set('Authorization', `Bearer ${ADMIN_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JANE_ADMIN_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -258,7 +248,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -289,7 +279,7 @@ describe('workspace permissions', () => {
 
         return client
           .post('/graphql')
-          .set('Authorization', `Bearer ${ADMIN_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JANE_ADMIN_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -318,7 +308,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -336,13 +326,18 @@ describe('workspace permissions', () => {
   });
 
   describe('billing', () => {
-    describe('switchToYearlyInterval', () => {
+    describe('switchSubscriptionInterval', () => {
       it('should throw a permission error when user does not have permission (member role)', async () => {
         const queryData = {
           query: `
-            mutation SwitchToYearlyInterval {
-              switchToYearlyInterval {
-                success
+            mutation SwitchSubscriptionInterval {
+              switchSubscriptionInterval {
+                billingSubscriptions {
+                  id
+                }
+                currentBillingSubscription {
+                  id
+                }
               }
             }
           `,
@@ -350,7 +345,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -383,7 +378,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -429,7 +424,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {
@@ -470,7 +465,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${ADMIN_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JANE_ADMIN_ACCESS_TOKEN}`)
           .send(queryData)
           .expect((res) => {
             expect(res.body.data).toBeDefined();
@@ -503,7 +498,7 @@ describe('workspace permissions', () => {
 
         await client
           .post('/graphql')
-          .set('Authorization', `Bearer ${MEMBER_ACCESS_TOKEN}`)
+          .set('Authorization', `Bearer ${APPLE_JONY_MEMBER_ACCESS_TOKEN}`)
           .send(queryData)
           .expect(200)
           .expect((res) => {

@@ -2,17 +2,20 @@ import { useAuth } from '@/auth/hooks/useAuth';
 import { billingState } from '@/client-config/states/billingState';
 import { isDeveloperDefaultSignInPrefilledState } from '@/client-config/states/isDeveloperDefaultSignInPrefilledState';
 import { supportChatState } from '@/client-config/states/supportChatState';
+
 import { workspaceAuthProvidersState } from '@/workspace/states/workspaceAuthProvidersState';
 import { useApolloClient } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
 import { expect } from '@storybook/test';
-import { ReactNode, act } from 'react';
+import { type ReactNode, act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { RecoilRoot, useRecoilValue } from 'recoil';
 
 import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWorkspaceEnabledState';
+import { SnackBarComponentInstanceContext } from '@/ui/feedback/snack-bar-manager/contexts/SnackBarComponentInstanceContext';
 import { renderHook } from '@testing-library/react';
 import { iconsState } from 'twenty-ui/display';
+import { SupportDriver } from '~/generated/graphql';
 import { email, mocks, password, results, token } from '../__mocks__/useAuth';
 
 const redirectSpy = jest.fn();
@@ -23,16 +26,58 @@ jest.mock('@/domain-manager/hooks/useRedirect', () => ({
   })),
 }));
 
-jest.mock('@/object-metadata/hooks/useRefreshObjectMetadataItem', () => ({
+jest.mock('@/object-metadata/hooks/useRefreshObjectMetadataItems', () => ({
   useRefreshObjectMetadataItems: jest.fn().mockImplementation(() => ({
     refreshObjectMetadataItems: jest.fn(),
   })),
 }));
 
+jest.mock('@/domain-manager/hooks/useOrigin', () => ({
+  useOrigin: jest.fn().mockImplementation(() => ({
+    origin: 'http://localhost',
+  })),
+}));
+
+jest.mock('@/captcha/hooks/useRequestFreshCaptchaToken', () => ({
+  useRequestFreshCaptchaToken: jest.fn().mockImplementation(() => ({
+    requestFreshCaptchaToken: jest.fn(),
+  })),
+}));
+
+jest.mock('@/auth/sign-in-up/hooks/useSignUpInNewWorkspace', () => ({
+  useSignUpInNewWorkspace: jest.fn().mockImplementation(() => ({
+    createWorkspace: jest.fn(),
+  })),
+}));
+
+jest.mock('@/domain-manager/hooks/useRedirectToWorkspaceDomain', () => ({
+  useRedirectToWorkspaceDomain: jest.fn().mockImplementation(() => ({
+    redirectToWorkspaceDomain: jest.fn(),
+  })),
+}));
+
+jest.mock('@/domain-manager/hooks/useIsCurrentLocationOnAWorkspace', () => ({
+  useIsCurrentLocationOnAWorkspace: jest.fn().mockImplementation(() => ({
+    isOnAWorkspace: true,
+  })),
+}));
+
+jest.mock('@/domain-manager/hooks/useLastAuthenticatedWorkspaceDomain', () => ({
+  useLastAuthenticatedWorkspaceDomain: jest.fn().mockImplementation(() => ({
+    setLastAuthenticateWorkspaceDomain: jest.fn(),
+  })),
+}));
+
 const Wrapper = ({ children }: { children: ReactNode }) => (
-  <MockedProvider mocks={mocks} addTypename={false}>
+  <MockedProvider mocks={Object.values(mocks)} addTypename={false}>
     <RecoilRoot>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter>
+        <SnackBarComponentInstanceContext.Provider
+          value={{ instanceId: 'test-instance-id' }}
+        >
+          {children}
+        </SnackBarComponentInstanceContext.Provider>
+      </MemoryRouter>
     </RecoilRoot>
   </MockedProvider>
 );
@@ -63,7 +108,7 @@ describe('useAuth', () => {
       ).toStrictEqual(results.getLoginTokenFromCredentials);
     });
 
-    expect(mocks[0].result).toHaveBeenCalled();
+    expect(mocks.getLoginTokenFromCredentials.result).toHaveBeenCalled();
   });
 
   it('should verify user', async () => {
@@ -73,19 +118,19 @@ describe('useAuth', () => {
       await result.current.getAuthTokensFromLoginToken(token);
     });
 
-    expect(mocks[1].result).toHaveBeenCalled();
-    expect(mocks[3].result).toHaveBeenCalled();
+    expect(mocks.getAuthTokensFromLoginToken.result).toHaveBeenCalled();
+    expect(mocks.getCurrentUser.result).toHaveBeenCalled();
   });
 
   it('should handle credential sign-in', async () => {
     const { result } = renderHooks();
 
     await act(async () => {
-      await result.current.signInWithCredentials(email, password);
+      await result.current.signInWithCredentialsInWorkspace(email, password);
     });
 
-    expect(mocks[0].result).toHaveBeenCalled();
-    expect(mocks[1].result).toHaveBeenCalled();
+    expect(mocks.getLoginTokenFromCredentials.result).toHaveBeenCalled();
+    expect(mocks.getAuthTokensFromLoginToken.result).toHaveBeenCalled();
   });
 
   it('should handle google sign-in', async () => {
@@ -94,6 +139,7 @@ describe('useAuth', () => {
     await act(async () => {
       await result.current.signInWithGoogle({
         workspaceInviteHash: 'workspaceInviteHash',
+        action: 'join-workspace',
       });
     });
 
@@ -154,7 +200,7 @@ describe('useAuth', () => {
     expect(state.billing).toBeNull();
     expect(state.isDeveloperDefaultSignInPrefilled).toBe(false);
     expect(state.supportChat).toEqual({
-      supportDriver: 'none',
+      supportDriver: SupportDriver.NONE,
       supportFrontChatId: null,
     });
   });
@@ -163,9 +209,12 @@ describe('useAuth', () => {
     const { result } = renderHooks();
 
     await act(async () => {
-      await result.current.signUpWithCredentials({ email, password });
+      await result.current.signUpWithCredentialsInWorkspace({
+        email,
+        password,
+      });
     });
 
-    expect(mocks[2].result).toHaveBeenCalled();
+    expect(mocks.signUpInWorkspace.result).toHaveBeenCalled();
   });
 });

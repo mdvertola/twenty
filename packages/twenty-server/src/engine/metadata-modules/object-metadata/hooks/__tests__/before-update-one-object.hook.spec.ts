@@ -1,22 +1,16 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { i18n } from '@lingui/core';
-import { UpdateOneInputType } from '@ptc-org/nestjs-query-graphql';
-import { Repository } from 'typeorm';
+import { type UpdateOneInputType } from '@ptc-org/nestjs-query-graphql';
+import { type Repository } from 'typeorm';
 
 import { FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
-import { UpdateObjectPayload } from 'src/engine/metadata-modules/object-metadata/dtos/update-object.input';
+import { type UpdateObjectPayload } from 'src/engine/metadata-modules/object-metadata/dtos/update-object.input';
 import { BeforeUpdateOneObject } from 'src/engine/metadata-modules/object-metadata/hooks/before-update-one-object.hook';
-import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
+import { type ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { ObjectMetadataService } from 'src/engine/metadata-modules/object-metadata/object-metadata.service';
-
-jest.mock('@lingui/core', () => ({
-  i18n: {
-    _: jest.fn().mockImplementation((messageId) => `translated:${messageId}`),
-  },
-}));
+import { I18nService } from 'src/engine/core-modules/i18n/i18n.service';
 
 type UpdateObjectPayloadForTest = Omit<
   UpdateObjectPayload,
@@ -42,9 +36,17 @@ describe('BeforeUpdateOneObject', () => {
           },
         },
         {
-          provide: getRepositoryToken(FieldMetadataEntity, 'metadata'),
+          provide: getRepositoryToken(FieldMetadataEntity),
           useValue: {
             findBy: jest.fn(),
+          },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            getI18nInstance: jest.fn().mockReturnValue({
+              _: jest.fn().mockReturnValue('mocked-translation'),
+            }),
           },
         },
       ],
@@ -57,7 +59,7 @@ describe('BeforeUpdateOneObject', () => {
       ObjectMetadataService,
     );
     fieldMetadataRepository = module.get<Repository<FieldMetadataEntity>>(
-      getRepositoryToken(FieldMetadataEntity, 'metadata'),
+      getRepositoryToken(FieldMetadataEntity),
     );
   });
 
@@ -511,9 +513,7 @@ describe('BeforeUpdateOneObject', () => {
   });
 
   it('should reset locale-specific translations when they match translated defaults', async () => {
-    const translatedLabel = 'translated:msg-label';
-
-    (i18n._ as jest.Mock).mockImplementation(() => translatedLabel);
+    const translatedLabel = 'mocked-translation';
 
     const instance: UpdateOneInputType<UpdateObjectPayloadForTest> = {
       id: mockObjectId,
@@ -656,34 +656,6 @@ describe('BeforeUpdateOneObject', () => {
     expect(result).toEqual(instance);
   });
 
-  it('should throw BadRequestException if label identifier field does not exist', async () => {
-    const labelIdentifierFieldId = 'nonexistent-field-id';
-    const instance: UpdateOneInputType<UpdateObjectPayloadForTest> = {
-      id: mockObjectId,
-      update: {
-        labelIdentifierFieldMetadataId: labelIdentifierFieldId,
-      },
-    };
-
-    const mockObject: Partial<ObjectMetadataEntity> = {
-      id: mockObjectId,
-      isCustom: true,
-    };
-
-    jest
-      .spyOn(objectMetadataService, 'findOneWithinWorkspace')
-      .mockResolvedValue(mockObject as ObjectMetadataEntity);
-
-    jest.spyOn(fieldMetadataRepository, 'findBy').mockResolvedValue([]);
-
-    await expect(
-      hook.run(instance as UpdateOneInputType<UpdateObjectPayload>, {
-        workspaceId: mockWorkspaceId,
-        locale: undefined,
-      }),
-    ).rejects.toThrow('This label identifier does not exist');
-  });
-
   it('should validate image identifier field correctly for custom objects', async () => {
     const imageIdentifierFieldId = 'image-field-id';
     const instance: UpdateOneInputType<UpdateObjectPayloadForTest> = {
@@ -721,33 +693,5 @@ describe('BeforeUpdateOneObject', () => {
     );
 
     expect(result).toEqual(instance);
-  });
-
-  it('should throw BadRequestException if image identifier field does not exist', async () => {
-    const imageIdentifierFieldId = 'nonexistent-field-id';
-    const instance: UpdateOneInputType<UpdateObjectPayloadForTest> = {
-      id: mockObjectId,
-      update: {
-        imageIdentifierFieldMetadataId: imageIdentifierFieldId,
-      },
-    };
-
-    const mockObject: Partial<ObjectMetadataEntity> = {
-      id: mockObjectId,
-      isCustom: true,
-    };
-
-    jest
-      .spyOn(objectMetadataService, 'findOneWithinWorkspace')
-      .mockResolvedValue(mockObject as ObjectMetadataEntity);
-
-    jest.spyOn(fieldMetadataRepository, 'findBy').mockResolvedValue([]);
-
-    await expect(
-      hook.run(instance as UpdateOneInputType<UpdateObjectPayload>, {
-        workspaceId: mockWorkspaceId,
-        locale: undefined,
-      }),
-    ).rejects.toThrow('This image identifier does not exist');
   });
 });

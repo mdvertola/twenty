@@ -1,35 +1,30 @@
-import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
-import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
-import { CoreObjectNameSingular } from '@/object-metadata/types/CoreObjectNameSingular';
-import { useGetRecordFromCache } from '@/object-record/cache/hooks/useGetRecordFromCache';
-import { updateRecordFromCache } from '@/object-record/cache/utils/updateRecordFromCache';
-import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { CREATE_WORKFLOW_VERSION_STEP } from '@/workflow/graphql/mutations/createWorkflowVersionStep';
-import { WorkflowVersion } from '@/workflow/types/Workflow';
-import { useApolloClient, useMutation } from '@apollo/client';
-import { isDefined } from 'twenty-shared/utils';
+import { useMutation } from '@apollo/client';
 import {
-  CreateWorkflowVersionStepInput,
-  CreateWorkflowVersionStepMutation,
-  CreateWorkflowVersionStepMutationVariables,
-} from '~/generated/graphql';
+  type CreateWorkflowVersionStepInput,
+  type CreateWorkflowVersionStepMutation,
+  type CreateWorkflowVersionStepMutationVariables,
+} from '~/generated-metadata/graphql';
+import { useUpdateWorkflowVersionCache } from '@/workflow/workflow-steps/hooks/useUpdateWorkflowVersionCache';
+import { flowComponentState } from '@/workflow/states/flowComponentState';
+import { useSetRecoilComponentState } from '@/ui/utilities/state/component-state/hooks/useSetRecoilComponentState';
+import { isDefined } from 'twenty-shared/utils';
 
 export const useCreateWorkflowVersionStep = () => {
-  const apolloClient = useApolloClient();
-  const { objectMetadataItems } = useObjectMetadataItems();
-  const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
-  const { objectMetadataItem } = useObjectMetadataItem({
-    objectNameSingular: CoreObjectNameSingular.WorkflowVersion,
-  });
-  const getRecordFromCache = useGetRecordFromCache({
-    objectNameSingular: CoreObjectNameSingular.WorkflowVersion,
-  });
+  const apolloCoreClient = useApolloCoreClient();
+
+  const { updateWorkflowVersionCache } = useUpdateWorkflowVersionCache();
+
+  const setFlow = useSetRecoilComponentState(flowComponentState);
+
   const [mutate] = useMutation<
     CreateWorkflowVersionStepMutation,
     CreateWorkflowVersionStepMutationVariables
   >(CREATE_WORKFLOW_VERSION_STEP, {
-    client: apolloClient,
+    client: apolloCoreClient,
   });
+
   const createWorkflowVersionStep = async (
     input: CreateWorkflowVersionStepInput,
   ) => {
@@ -37,47 +32,21 @@ export const useCreateWorkflowVersionStep = () => {
       variables: { input },
     });
 
-    const createdStep = result?.data?.createWorkflowVersionStep;
-    if (!isDefined(createdStep)) {
-      return;
-    }
+    const workflowVersionStepChanges = result?.data?.createWorkflowVersionStep;
 
-    const cachedRecord = getRecordFromCache<WorkflowVersion>(
-      input.workflowVersionId,
-    );
-
-    if (!isDefined(cachedRecord)) {
-      return;
-    }
-
-    const updatedExistingSteps =
-      cachedRecord.steps?.map((step) => {
-        if (step.id === input.parentStepId) {
-          return {
-            ...step,
-            nextStepIds: [...(step.nextStepIds || []), createdStep.id],
-          };
-        }
-        return step;
-      }) ?? [];
-
-    const newCachedRecord = {
-      ...cachedRecord,
-      steps: [...updatedExistingSteps, createdStep],
-    };
-
-    const recordGqlFields = {
-      steps: true,
-    };
-
-    updateRecordFromCache({
-      objectMetadataItems,
-      objectMetadataItem,
-      cache: apolloClient.cache,
-      record: newCachedRecord,
-      recordGqlFields,
-      objectPermissionsByObjectMetadataId,
+    const updatedWorkflowVersion = updateWorkflowVersionCache({
+      workflowVersionStepChanges,
+      workflowVersionId: input.workflowVersionId,
     });
+
+    if (isDefined(updatedWorkflowVersion)) {
+      setFlow({
+        workflowVersionId: updatedWorkflowVersion.id,
+        trigger: updatedWorkflowVersion.trigger,
+        steps: updatedWorkflowVersion.steps,
+      });
+    }
+
     return result;
   };
 

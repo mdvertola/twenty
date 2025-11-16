@@ -1,13 +1,15 @@
-import { useApolloClient } from '@apollo/client';
 import { useCallback } from 'react';
 
 import { triggerCreateRecordsOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerCreateRecordsOptimisticEffect';
 import { triggerDestroyRecordsOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerDestroyRecordsOptimisticEffect';
+import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useGetRecordFromCache } from '@/object-record/cache/hooks/useGetRecordFromCache';
 import { useDestroyOneRecordMutation } from '@/object-record/hooks/useDestroyOneRecordMutation';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
+import { useRegisterObjectOperation } from '@/object-record/hooks/useRegisterObjectOperation';
+import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useUpsertRecordsInStore';
 import { getDestroyOneRecordMutationResponseField } from '@/object-record/utils/getDestroyOneRecordMutationResponseField';
 import { capitalize, isDefined } from 'twenty-shared/utils';
 
@@ -19,7 +21,10 @@ type useDestroyOneRecordProps = {
 export const useDestroyOneRecord = ({
   objectNameSingular,
 }: useDestroyOneRecordProps) => {
-  const apolloClient = useApolloClient();
+  const { registerObjectOperation } = useRegisterObjectOperation();
+  const { upsertRecordsInStore } = useUpsertRecordsInStore();
+
+  const apolloCoreClient = useApolloCoreClient();
 
   const { objectMetadataItem } = useObjectMetadataItem({
     objectNameSingular,
@@ -40,10 +45,10 @@ export const useDestroyOneRecord = ({
     async (idToDestroy: string) => {
       const originalRecord = getRecordFromCache(
         idToDestroy,
-        apolloClient.cache,
+        apolloCoreClient.cache,
       );
 
-      const deletedRecord = await apolloClient
+      const deletedRecord = await apolloCoreClient
         .mutate({
           mutation: destroyOneRecordMutation,
           variables: { idToDestroy },
@@ -64,33 +69,42 @@ export const useDestroyOneRecord = ({
               objectMetadataItem,
               recordsToDestroy: [cachedRecord],
               objectMetadataItems,
+              upsertRecordsInStore,
+              objectPermissionsByObjectMetadataId,
             });
           },
         })
         .catch((error: Error) => {
           if (isDefined(originalRecord)) {
             triggerCreateRecordsOptimisticEffect({
-              cache: apolloClient.cache,
+              cache: apolloCoreClient.cache,
               objectMetadataItem,
               recordsToCreate: [originalRecord],
               objectMetadataItems,
               objectPermissionsByObjectMetadataId,
+              upsertRecordsInStore,
             });
           }
 
           throw error;
         });
 
+      registerObjectOperation(objectMetadataItem.nameSingular, {
+        type: 'destroy-one',
+      });
+
       return deletedRecord.data?.[mutationResponseField] ?? null;
     },
     [
-      apolloClient,
-      destroyOneRecordMutation,
       getRecordFromCache,
+      apolloCoreClient,
+      destroyOneRecordMutation,
       mutationResponseField,
-      objectMetadataItem,
       objectNameSingular,
+      registerObjectOperation,
+      objectMetadataItem,
       objectMetadataItems,
+      upsertRecordsInStore,
       objectPermissionsByObjectMetadataId,
     ],
   );

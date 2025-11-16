@@ -1,21 +1,32 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 
 import { FieldMetadataType } from 'twenty-shared/types';
 
-import { WorkspaceQueryRunnerOptions } from 'src/engine/api/graphql/workspace-query-runner/interfaces/query-runner-option.interface';
+import { type WorkspaceQueryRunnerOptions } from 'src/engine/api/graphql/workspace-query-runner/interfaces/query-runner-option.interface';
 import { ResolverArgsType } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
 
 import { QueryRunnerArgsFactory } from 'src/engine/api/graphql/workspace-query-runner/factories/query-runner-args.factory';
-import {
-  RecordPositionService,
-  RecordPositionServiceCreateArgs,
-} from 'src/engine/core-modules/record-position/services/record-position.service';
+import { RecordPositionService } from 'src/engine/core-modules/record-position/services/record-position.service';
 import { RecordInputTransformerService } from 'src/engine/core-modules/record-transformer/services/record-input-transformer.service';
-import { FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
+import { type FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
 
 describe('QueryRunnerArgsFactory', () => {
   const recordPositionService = {
-    buildRecordPosition: jest.fn().mockResolvedValue(2),
+    overridePositionOnRecords: jest
+      .fn()
+      .mockImplementation(
+        ({ partialRecordInputs }: { partialRecordInputs: any[] }) => {
+          return Promise.resolve(
+            partialRecordInputs.map((record: any) => ({
+              ...record,
+              position:
+                record.position === 'last' || !record.position
+                  ? 2
+                  : record.position,
+            })),
+          );
+        },
+      ),
   };
   const workspaceId = 'workspaceId';
   const options = {
@@ -23,40 +34,29 @@ describe('QueryRunnerArgsFactory', () => {
     objectMetadataItemWithFieldMaps: {
       isCustom: true,
       nameSingular: 'testNumber',
-      fields: [
-        {
+      fieldsById: {
+        'position-id': {
           type: FieldMetadataType.POSITION,
           isCustom: true,
           name: 'position',
         },
-        {
+        'testNumber-id': {
           type: FieldMetadataType.NUMBER,
           isCustom: true,
           name: 'testNumber',
         },
-        {
-          type: FieldMetadataType.TEXT,
-          isCustom: true,
-          name: 'otherField',
-        },
-      ],
-      fieldsByName: {
-        position: {
-          type: FieldMetadataType.POSITION,
-          isCustom: true,
-          name: 'position',
-        },
-        testNumber: {
-          type: FieldMetadataType.NUMBER,
-          isCustom: true,
-          name: 'testNumber',
-        },
-        otherField: {
+        'otherField-id': {
           type: FieldMetadataType.TEXT,
           isCustom: true,
           name: 'otherField',
         },
       } as unknown as FieldMetadataMap,
+      fieldIdByName: {
+        position: 'position-id',
+        testNumber: 'testNumber-id',
+        otherField: 'otherField-id',
+      },
+      fieldIdByJoinColumnName: {},
     },
   } as unknown as WorkspaceQueryRunnerOptions;
 
@@ -89,7 +89,7 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.CreateMany,
+        ResolverArgsType.CREATE_MANY,
       );
 
       expect(result).toEqual(args);
@@ -104,19 +104,27 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.CreateMany,
+        ResolverArgsType.CREATE_MANY,
       );
 
-      const expectedArgs: RecordPositionServiceCreateArgs = {
-        value: 'last',
-        objectMetadata: { isCustom: true, nameSingular: 'testNumber' },
+      const expectedArgs = {
+        partialRecordInputs: [{ position: 'last', testNumber: 1 }],
+        objectMetadata: {
+          isCustom: true,
+          nameSingular: 'testNumber',
+          fieldIdByName: {
+            position: 'position-id',
+            testNumber: 'testNumber-id',
+            otherField: 'otherField-id',
+          },
+        },
         workspaceId,
-        index: 0,
+        shouldBackfillPositionIfUndefined: true,
       };
 
-      expect(recordPositionService.buildRecordPosition).toHaveBeenCalledWith(
-        expectedArgs,
-      );
+      expect(
+        recordPositionService.overridePositionOnRecords,
+      ).toHaveBeenCalledWith(expectedArgs);
       expect(result).toEqual({
         id: 'uuid',
         data: [{ position: 2, testNumber: 1 }],
@@ -132,19 +140,27 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.CreateMany,
+        ResolverArgsType.CREATE_MANY,
       );
 
-      const expectedArgs: RecordPositionServiceCreateArgs = {
-        value: 'first',
-        objectMetadata: { isCustom: true, nameSingular: 'testNumber' },
+      const expectedArgs = {
+        partialRecordInputs: [{ testNumber: 1 }],
+        objectMetadata: {
+          isCustom: true,
+          nameSingular: 'testNumber',
+          fieldIdByName: {
+            position: 'position-id',
+            testNumber: 'testNumber-id',
+            otherField: 'otherField-id',
+          },
+        },
         workspaceId,
-        index: 0,
+        shouldBackfillPositionIfUndefined: true,
       };
 
-      expect(recordPositionService.buildRecordPosition).toHaveBeenCalledWith(
-        expectedArgs,
-      );
+      expect(
+        recordPositionService.overridePositionOnRecords,
+      ).toHaveBeenCalledWith(expectedArgs);
       expect(result).toEqual({
         id: 'uuid',
         data: [{ position: 2, testNumber: 1 }],
@@ -160,7 +176,7 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.FindMany,
+        ResolverArgsType.FIND_MANY,
       );
 
       expect(result).toEqual({
@@ -178,7 +194,7 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.FindOne,
+        ResolverArgsType.FIND_ONE,
       );
 
       expect(result).toEqual({
@@ -196,7 +212,7 @@ describe('QueryRunnerArgsFactory', () => {
       const result = await factory.create(
         args,
         options,
-        ResolverArgsType.FindDuplicates,
+        ResolverArgsType.FIND_DUPLICATES,
       );
 
       expect(result).toEqual({

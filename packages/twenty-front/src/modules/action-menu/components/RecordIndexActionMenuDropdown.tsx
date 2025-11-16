@@ -5,22 +5,19 @@ import { ACTION_MENU_DROPDOWN_CLICK_OUTSIDE_ID } from '@/action-menu/constants/A
 import { ActionMenuContext } from '@/action-menu/contexts/ActionMenuContext';
 import { ActionMenuComponentInstanceContext } from '@/action-menu/states/contexts/ActionMenuComponentInstanceContext';
 import { recordIndexActionMenuDropdownPositionComponentState } from '@/action-menu/states/recordIndexActionMenuDropdownPositionComponentState';
-import { ActionMenuDropdownHotkeyScope } from '@/action-menu/types/ActionMenuDropdownHotKeyScope';
 import { getActionMenuDropdownIdFromActionMenuId } from '@/action-menu/utils/getActionMenuDropdownIdFromActionMenuId';
 import { useCommandMenu } from '@/command-menu/hooks/useCommandMenu';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { DropdownContent } from '@/ui/layout/dropdown/components/DropdownContent';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
-import { useDropdownV2 } from '@/ui/layout/dropdown/hooks/useDropdownV2';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 import { SelectableListItem } from '@/ui/layout/selectable-list/components/SelectableListItem';
 import { selectedItemIdComponentState } from '@/ui/layout/selectable-list/states/selectedItemIdComponentState';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
-import { extractComponentState } from '@/ui/utilities/state/component-state/utils/extractComponentState';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import styled from '@emotion/styled';
 import { useContext } from 'react';
-import { useRecoilValue } from 'recoil';
 import { IconLayoutSidebarRightExpand } from 'twenty-ui/display';
 import { MenuItem } from 'twenty-ui/navigation';
 
@@ -48,13 +45,11 @@ export const RecordIndexActionMenuDropdown = () => {
   );
 
   const dropdownId = getActionMenuDropdownIdFromActionMenuId(actionMenuId);
-  const { closeDropdown } = useDropdownV2();
+  const { closeDropdown } = useCloseDropdown();
 
-  const actionMenuDropdownPosition = useRecoilValue(
-    extractComponentState(
-      recordIndexActionMenuDropdownPositionComponentState,
-      dropdownId,
-    ),
+  const actionMenuDropdownPosition = useRecoilComponentValue(
+    recordIndexActionMenuDropdownPositionComponentState,
+    dropdownId,
   );
 
   const { openCommandMenu } = useCommandMenu();
@@ -64,7 +59,7 @@ export const RecordIndexActionMenuDropdown = () => {
     'more-actions',
   ];
 
-  const selectedItemId = useRecoilComponentValueV2(
+  const selectedItemId = useRecoilComponentValue(
     selectedItemIdComponentState,
     dropdownId,
   );
@@ -72,9 +67,6 @@ export const RecordIndexActionMenuDropdown = () => {
   return (
     <Dropdown
       dropdownId={dropdownId}
-      dropdownHotkeyScope={{
-        scope: ActionMenuDropdownHotkeyScope.ActionMenuDropdown,
-      }}
       data-select-disable
       dropdownPlacement="bottom-start"
       dropdownStrategy="absolute"
@@ -89,7 +81,7 @@ export const RecordIndexActionMenuDropdown = () => {
           >
             <DropdownMenuItemsContainer>
               <SelectableList
-                hotkeyScope={ActionMenuDropdownHotkeyScope.ActionMenuDropdown}
+                focusId={dropdownId}
                 selectableItemIdArray={selectedItemIdArray}
                 selectableListInstanceId={dropdownId}
               >

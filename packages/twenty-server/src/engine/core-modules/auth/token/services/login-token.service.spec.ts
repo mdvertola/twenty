@@ -1,7 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 
 import { JwtWrapperService } from 'src/engine/core-modules/jwt/services/jwt-wrapper.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
+import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 
 import { LoginTokenService } from './login-token.service';
 
@@ -19,7 +20,7 @@ describe('LoginTokenService', () => {
           useValue: {
             generateAppSecret: jest.fn(),
             sign: jest.fn(),
-            verifyWorkspaceToken: jest.fn(),
+            verifyJwtToken: jest.fn(),
             decode: jest.fn(),
           },
         },
@@ -55,7 +56,11 @@ describe('LoginTokenService', () => {
       jest.spyOn(twentyConfigService, 'get').mockReturnValue(mockExpiresIn);
       jest.spyOn(jwtWrapperService, 'sign').mockReturnValue(mockToken);
 
-      const result = await service.generateLoginToken(email, workspaceId);
+      const result = await service.generateLoginToken(
+        email,
+        workspaceId,
+        AuthProviderEnum.Password,
+      );
 
       expect(result).toEqual({
         token: mockToken,
@@ -69,8 +74,56 @@ describe('LoginTokenService', () => {
         'LOGIN_TOKEN_EXPIRES_IN',
       );
       expect(jwtWrapperService.sign).toHaveBeenCalledWith(
-        { sub: email, workspaceId },
+        {
+          sub: email,
+          workspaceId,
+          type: 'LOGIN',
+          authProvider: AuthProviderEnum.Password,
+          impersonatorUserId: undefined,
+        },
         { secret: mockSecret, expiresIn: mockExpiresIn },
+      );
+    });
+  });
+
+  describe('generateLoginToken with impersonation', () => {
+    it('should include impersonatorUserId in JWT payload when using Impersonation auth provider', async () => {
+      const email = 'test@example.com';
+      const mockSecret = 'mock-secret';
+      const mockToken = 'mock-token';
+      const workspaceId = 'workspace-id';
+      const impersonatorUserWorkspaceId = 'impersonator-id';
+
+      jest
+        .spyOn(jwtWrapperService, 'generateAppSecret')
+        .mockReturnValue(mockSecret);
+      jest.spyOn(twentyConfigService, 'get').mockReturnValue('1h');
+      jest.spyOn(jwtWrapperService, 'sign').mockReturnValue(mockToken);
+
+      const result = await service.generateLoginToken(
+        email,
+        workspaceId,
+        AuthProviderEnum.Impersonation,
+        { impersonatorUserWorkspaceId },
+      );
+
+      expect(result).toEqual({
+        token: mockToken,
+        expiresAt: expect.any(Date),
+      });
+      expect(jwtWrapperService.generateAppSecret).toHaveBeenCalledWith(
+        'LOGIN',
+        workspaceId,
+      );
+      expect(jwtWrapperService.sign).toHaveBeenCalledWith(
+        {
+          sub: email,
+          workspaceId,
+          type: 'LOGIN',
+          authProvider: AuthProviderEnum.Impersonation,
+          impersonatorUserWorkspaceId,
+        },
+        { secret: mockSecret, expiresIn: expect.any(String) },
       );
     });
   });
@@ -81,7 +134,7 @@ describe('LoginTokenService', () => {
       const mockEmail = 'test@example.com';
 
       jest
-        .spyOn(jwtWrapperService, 'verifyWorkspaceToken')
+        .spyOn(jwtWrapperService, 'verifyJwtToken')
         .mockResolvedValue(undefined);
       jest
         .spyOn(jwtWrapperService, 'decode')
@@ -90,7 +143,7 @@ describe('LoginTokenService', () => {
       const result = await service.verifyLoginToken(mockToken);
 
       expect(result).toEqual({ sub: mockEmail });
-      expect(jwtWrapperService.verifyWorkspaceToken).toHaveBeenCalledWith(
+      expect(jwtWrapperService.verifyJwtToken).toHaveBeenCalledWith(
         mockToken,
         'LOGIN',
       );
@@ -103,7 +156,7 @@ describe('LoginTokenService', () => {
       const mockToken = 'invalid-token';
 
       jest
-        .spyOn(jwtWrapperService, 'verifyWorkspaceToken')
+        .spyOn(jwtWrapperService, 'verifyJwtToken')
         .mockRejectedValue(new Error('Invalid token'));
 
       await expect(service.verifyLoginToken(mockToken)).rejects.toThrow();

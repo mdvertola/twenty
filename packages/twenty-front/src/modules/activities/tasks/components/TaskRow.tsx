@@ -6,11 +6,12 @@ import { getActivitySummary } from '@/activities/utils/getActivitySummary';
 import { beautifyExactDate, hasDatePassed } from '~/utils/date-utils';
 
 import { ActivityRow } from '@/activities/components/ActivityRow';
-import { Task } from '@/activities/types/Task';
+import { useActivityTargetsComponentInstanceId } from '@/activities/inline-cell/hooks/useActivityTargetsComponentInstanceId';
+import { type Task } from '@/activities/types/Task';
 import { useOpenRecordInCommandMenu } from '@/command-menu/hooks/useOpenRecordInCommandMenu';
 import { CoreObjectNameSingular } from '@/object-metadata/types/CoreObjectNameSingular';
 import { StopPropagationContainer } from '@/object-record/record-board/record-board-card/components/StopPropagationContainer';
-import { FieldContextProvider } from '@/object-record/record-field/components/FieldContextProvider';
+import { FieldContextProvider } from '@/object-record/record-field/ui/components/FieldContextProvider';
 import { IconCalendar, OverflowingTextWithTooltip } from 'twenty-ui/display';
 import { Checkbox, CheckboxShape } from 'twenty-ui/input';
 import { useCompleteTask } from '../hooks/useCompleteTask';
@@ -57,6 +58,11 @@ const StyledRightSideContainer = styled.div`
   max-width: 50%;
 `;
 
+const StyledActivityTargetsContainer = styled.div`
+  overflow: clip;
+  width: 100%;
+`;
+
 const StyledPlaceholder = styled.div`
   color: ${({ theme }) => theme.font.color.light};
 `;
@@ -80,6 +86,11 @@ export const TaskRow = ({ task }: { task: Task }) => {
   const body = getActivitySummary(task?.bodyV2?.blocknote ?? null);
 
   const { completeTask } = useCompleteTask(task);
+
+  const baseComponentInstanceId = `task-row-targets-${task.id}`;
+  const componentInstanceId = useActivityTargetsComponentInstanceId(
+    baseComponentInstanceId,
+  );
 
   return (
     <ActivityRow
@@ -119,22 +130,24 @@ export const TaskRow = ({ task }: { task: Task }) => {
           </StyledDueDate>
         )}
         {
-          <FieldContextProvider
-            objectNameSingular={CoreObjectNameSingular.Task}
-            objectRecordId={task.id}
-            fieldMetadataName={'taskTargets'}
-            fieldPosition={0}
-          >
-            <StopPropagationContainer>
-              <ActivityTargetsInlineCell
-                activityObjectNameSingular={CoreObjectNameSingular.Task}
-                activityRecordId={task.id}
-                showLabel={false}
-                maxWidth={200}
-                componentInstanceId={`task-row-targets-${task.id}`}
-              />
-            </StopPropagationContainer>
-          </FieldContextProvider>
+          <StyledActivityTargetsContainer>
+            <FieldContextProvider
+              objectNameSingular={CoreObjectNameSingular.Task}
+              objectRecordId={task.id}
+              fieldMetadataName="taskTargets"
+              fieldPosition={0}
+            >
+              <StopPropagationContainer>
+                <ActivityTargetsInlineCell
+                  activityObjectNameSingular={CoreObjectNameSingular.Task}
+                  activityRecordId={task.id}
+                  showLabel={false}
+                  maxWidth={200}
+                  componentInstanceId={componentInstanceId}
+                />
+              </StopPropagationContainer>
+            </FieldContextProvider>
+          </StyledActivityTargetsContainer>
         }
       </StyledRightSideContainer>
     </ActivityRow>

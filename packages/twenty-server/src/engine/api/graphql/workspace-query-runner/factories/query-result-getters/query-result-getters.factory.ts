@@ -1,14 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { FieldMetadataType } from 'twenty-shared/types';
+import { FieldMetadataType, type ObjectRecord } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
-import { ObjectRecord } from 'src/engine/api/graphql/workspace-query-builder/interfaces/object-record.interface';
-import { QueryResultFieldValue } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-field-value';
-import { QueryResultGetterHandlerInterface } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-getter-handler.interface';
-import { IConnection } from 'src/engine/api/graphql/workspace-query-runner/interfaces/connection.interface';
-import { IEdge } from 'src/engine/api/graphql/workspace-query-runner/interfaces/edge.interface';
-import { ObjectMetadataInterface } from 'src/engine/metadata-modules/field-metadata/interfaces/object-metadata.interface';
+import { type QueryResultFieldValue } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-field-value';
+import { type QueryResultGetterHandlerInterface } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/interfaces/query-result-getter-handler.interface';
+import { type IConnection } from 'src/engine/api/graphql/workspace-query-runner/interfaces/connection.interface';
+import { type IEdge } from 'src/engine/api/graphql/workspace-query-runner/interfaces/edge.interface';
 
 import { isQueryResultFieldValueAConnection } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/guards/is-query-result-field-value-a-connection.guard';
 import { isQueryResultFieldValueANestedRecordArray } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/guards/is-query-result-field-value-a-nested-record-array.guard';
@@ -18,26 +16,20 @@ import { ActivityQueryResultGetterHandler } from 'src/engine/api/graphql/workspa
 import { AttachmentQueryResultGetterHandler } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/handlers/attachment-query-result-getter.handler';
 import { PersonQueryResultGetterHandler } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/handlers/person-query-result-getter.handler';
 import { WorkspaceMemberQueryResultGetterHandler } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/handlers/workspace-member-query-result-getter.handler';
-import { CompositeInputTypeDefinitionFactory } from 'src/engine/api/graphql/workspace-schema-builder/factories/composite-input-type-definition.factory';
-import { FeatureFlagService } from 'src/engine/core-modules/feature-flag/services/feature-flag.service';
 import { FileService } from 'src/engine/core-modules/file/services/file.service';
-import { ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
-import { isFieldMetadataInterfaceOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
+import { type ObjectMetadataMaps } from 'src/engine/metadata-modules/types/object-metadata-maps';
+import { isFieldMetadataEntityOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
 
 // TODO: find a way to prevent conflict between handlers executing logic on object relations
 // And this factory that is also executing logic on object relations
 // Right now the factory will override any change made on relations by the handlers
 @Injectable()
 export class QueryResultGettersFactory {
-  private readonly logger = new Logger(
-    CompositeInputTypeDefinitionFactory.name,
-  );
+  private readonly logger = new Logger(QueryResultGettersFactory.name);
   private handlers: Map<string, QueryResultGetterHandlerInterface>;
 
-  constructor(
-    private readonly fileService: FileService,
-    private readonly featureFlagService: FeatureFlagService,
-  ) {
+  constructor(private readonly fileService: FileService) {
     this.initializeHandlers();
   }
 
@@ -49,20 +41,8 @@ export class QueryResultGettersFactory {
         'workspaceMember',
         new WorkspaceMemberQueryResultGetterHandler(this.fileService),
       ],
-      [
-        'note',
-        new ActivityQueryResultGetterHandler(
-          this.fileService,
-          this.featureFlagService,
-        ),
-      ],
-      [
-        'task',
-        new ActivityQueryResultGetterHandler(
-          this.fileService,
-          this.featureFlagService,
-        ),
-      ],
+      ['note', new ActivityQueryResultGetterHandler(this.fileService)],
+      ['task', new ActivityQueryResultGetterHandler(this.fileService)],
     ]);
   }
 
@@ -137,19 +117,22 @@ export class QueryResultGettersFactory {
   ): Promise<ObjectRecord> {
     const objectMetadataMapItem = objectMetadataMaps.byId[objectMetadataItemId];
 
+    if (!isDefined(objectMetadataMapItem)) {
+      throw new Error('Object metadata map item is not defined');
+    }
+
     const handler = this.getHandler(objectMetadataMapItem.nameSingular);
 
     const relationFields = Object.keys(record)
       .map(
         (recordFieldName) =>
-          objectMetadataMapItem.fieldsByName[recordFieldName],
+          objectMetadataMapItem.fieldsById[
+            objectMetadataMapItem.fieldIdByName[recordFieldName]
+          ],
       )
       .filter(isDefined)
       .filter((fieldMetadata) =>
-        isFieldMetadataInterfaceOfType(
-          fieldMetadata,
-          FieldMetadataType.RELATION,
-        ),
+        isFieldMetadataEntityOfType(fieldMetadata, FieldMetadataType.RELATION),
       );
 
     const relationFieldsProcessedMap = {} as Record<
@@ -230,7 +213,7 @@ export class QueryResultGettersFactory {
 
   async create(
     result: QueryResultFieldValue,
-    objectMetadataItem: ObjectMetadataInterface,
+    objectMetadataItem: ObjectMetadataItemWithFieldMaps,
     workspaceId: string,
     objectMetadataMaps: ObjectMetadataMaps,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

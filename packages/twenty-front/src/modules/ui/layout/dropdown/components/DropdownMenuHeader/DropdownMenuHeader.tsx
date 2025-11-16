@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import { ComponentProps, MouseEvent } from 'react';
+import { type ComponentProps, type MouseEvent } from 'react';
 
 const StyledHeader = styled.li`
   align-items: center;
@@ -22,6 +22,8 @@ const StyledHeader = styled.li`
     background: ${({ theme, onClick }) =>
       onClick ? theme.background.transparent.light : 'none'};
   }
+
+  flex-shrink: 0;
 `;
 
 const StyledChildrenWrapper = styled.span`

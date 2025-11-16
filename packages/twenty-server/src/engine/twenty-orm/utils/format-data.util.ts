@@ -1,13 +1,13 @@
-import { FieldMetadataType } from 'twenty-shared/types';
+import {
+  FieldMetadataType,
+  compositeTypeDefinitions,
+} from 'twenty-shared/types';
 import { capitalize } from 'twenty-shared/utils';
 
-import { FieldMetadataInterface } from 'src/engine/metadata-modules/field-metadata/interfaces/field-metadata.interface';
-
-import { compositeTypeDefinitions } from 'src/engine/metadata-modules/field-metadata/composite-types';
+import { type FieldMetadataEntity } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import { isCompositeFieldMetadataType } from 'src/engine/metadata-modules/field-metadata/utils/is-composite-field-metadata-type.util';
-import { ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
-import { CompositeFieldMetadataType } from 'src/engine/metadata-modules/workspace-migration/factories/composite-column-action.factory';
-import { isFieldMetadataInterfaceOfType } from 'src/engine/utils/is-field-metadata-of-type.util';
+import { type ObjectMetadataItemWithFieldMaps } from 'src/engine/metadata-modules/types/object-metadata-item-with-field-maps';
+import { type CompositeFieldMetadataType } from 'src/engine/metadata-modules/workspace-migration/factories/composite-column-action.factory';
 
 export function formatData<T>(
   data: T,
@@ -25,32 +25,18 @@ export function formatData<T>(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const newData: Record<string, any> = {};
-  const fieldMetadataByJoinColumnName =
-    objectMetadataItemWithFieldMaps.fields.reduce((acc, fieldMetadata) => {
-      if (
-        isFieldMetadataInterfaceOfType(
-          fieldMetadata,
-          FieldMetadataType.RELATION,
-        )
-      ) {
-        const joinColumnName = fieldMetadata.settings?.joinColumnName;
-
-        if (joinColumnName) {
-          acc.set(joinColumnName, fieldMetadata);
-        }
-      }
-
-      return acc;
-    }, new Map<string, FieldMetadataInterface>());
 
   for (const [key, value] of Object.entries(data)) {
+    const fieldMetadataId =
+      objectMetadataItemWithFieldMaps.fieldIdByName[key] ||
+      objectMetadataItemWithFieldMaps.fieldIdByJoinColumnName[key];
+
     const fieldMetadata =
-      objectMetadataItemWithFieldMaps.fieldsByName[key] ||
-      fieldMetadataByJoinColumnName.get(key);
+      objectMetadataItemWithFieldMaps.fieldsById[fieldMetadataId];
 
     if (!fieldMetadata) {
       throw new Error(
-        `Field metadata for field "${key}" is missing in object metadata`,
+        `Field metadata for field "${key}" is missing in object metadata ${objectMetadataItemWithFieldMaps.nameSingular}`,
       );
     }
 
@@ -69,10 +55,10 @@ export function formatData<T>(
   return newData as T;
 }
 
-function formatCompositeField(
+export function formatCompositeField(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
-  fieldMetadata: FieldMetadataInterface,
+  fieldMetadata: FieldMetadataEntity,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Record<string, any> {
   const compositeType = compositeTypeDefinitions.get(
@@ -95,7 +81,7 @@ function formatCompositeField(
     if (value && value[subFieldKey] !== undefined) {
       formattedCompositeField[fullFieldName] = formatFieldMetadataValue(
         value[subFieldKey],
-        property as unknown as FieldMetadataInterface,
+        property as unknown as FieldMetadataEntity,
       );
     }
   }
@@ -106,7 +92,7 @@ function formatCompositeField(
 function formatFieldMetadataValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
-  fieldMetadata: FieldMetadataInterface,
+  fieldMetadata: FieldMetadataEntity,
 ) {
   if (
     fieldMetadata.type === FieldMetadataType.RAW_JSON &&

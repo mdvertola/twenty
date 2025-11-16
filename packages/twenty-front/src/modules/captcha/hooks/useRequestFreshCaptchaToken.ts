@@ -4,16 +4,8 @@ import { captchaTokenState } from '@/captcha/states/captchaTokenState';
 import { isRequestingCaptchaTokenState } from '@/captcha/states/isRequestingCaptchaTokenState';
 import { isCaptchaRequiredForPath } from '@/captcha/utils/isCaptchaRequiredForPath';
 import { captchaState } from '@/client-config/states/captchaState';
-import { useLocation } from 'react-router-dom';
+import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
 import { CaptchaDriverType } from '~/generated-metadata/graphql';
-import { isUndefinedOrNull } from '~/utils/isUndefinedOrNull';
-
-declare global {
-  interface Window {
-    grecaptcha?: any;
-    turnstile?: any;
-  }
-}
 
 export const useRequestFreshCaptchaToken = () => {
   const setCaptchaToken = useSetRecoilState(captchaTokenState);
@@ -21,25 +13,24 @@ export const useRequestFreshCaptchaToken = () => {
     isRequestingCaptchaTokenState,
   );
 
-  const location = useLocation();
-
   const requestFreshCaptchaToken = useRecoilCallback(
     ({ snapshot }) =>
       async () => {
-        if (!isCaptchaRequiredForPath(location.pathname)) {
+        if (!isCaptchaRequiredForPath(window.location.pathname)) {
           return;
         }
 
         const captcha = snapshot.getLoadable(captchaState).getValue();
 
-        if (isUndefinedOrNull(captcha?.provider)) {
+        if (!isDefined(captcha)) {
           return;
         }
+
+        assertIsDefinedOrThrow(captcha);
 
         setIsRequestingCaptchaToken(true);
 
         let captchaWidget: any;
-
         switch (captcha.provider) {
           case CaptchaDriverType.GOOGLE_RECAPTCHA:
             window.grecaptcha
@@ -63,7 +54,7 @@ export const useRequestFreshCaptchaToken = () => {
             });
         }
       },
-    [location.pathname, setCaptchaToken, setIsRequestingCaptchaToken],
+    [setCaptchaToken, setIsRequestingCaptchaToken],
   );
 
   return { requestFreshCaptchaToken };

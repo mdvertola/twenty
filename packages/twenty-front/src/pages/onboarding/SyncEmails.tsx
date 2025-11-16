@@ -8,17 +8,17 @@ import { SubTitle } from '@/auth/components/SubTitle';
 import { Title } from '@/auth/components/Title';
 import { OnboardingSyncEmailsSettingsCard } from '@/onboarding/components/OnboardingSyncEmailsSettingsCard';
 import { useSetNextOnboardingStatus } from '@/onboarding/hooks/useSetNextOnboardingStatus';
-import { PageHotkeyScope } from '@/types/PageHotkeyScope';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
 
 import { isGoogleCalendarEnabledState } from '@/client-config/states/isGoogleCalendarEnabledState';
 import { isGoogleMessagingEnabledState } from '@/client-config/states/isGoogleMessagingEnabledState';
 import { isMicrosoftCalendarEnabledState } from '@/client-config/states/isMicrosoftCalendarEnabledState';
 import { isMicrosoftMessagingEnabledState } from '@/client-config/states/isMicrosoftMessagingEnabledState';
 import { useTriggerApisOAuth } from '@/settings/accounts/hooks/useTriggerApiOAuth';
-import { AppPath } from '@/types/AppPath';
+import { PageFocusId } from '@/types/PageFocusId';
 import { Modal } from '@/ui/layout/modal/components/Modal';
-import { ConnectedAccountProvider } from 'twenty-shared/types';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
+import { t } from '@lingui/core/macro';
+import { AppPath, ConnectedAccountProvider } from 'twenty-shared/types';
 import { IconGoogle, IconMicrosoft } from 'twenty-ui/display';
 import { MainButton } from 'twenty-ui/input';
 import { ClickToActionLink } from 'twenty-ui/navigation';
@@ -26,7 +26,7 @@ import {
   CalendarChannelVisibility,
   MessageChannelVisibility,
   useSkipSyncEmailOnboardingStepMutation,
-} from '~/generated/graphql';
+} from '~/generated-metadata/graphql';
 
 const StyledSyncEmailsContainer = styled.div`
   display: flex;
@@ -95,14 +95,14 @@ export const SyncEmails = () => {
   const isMicrosoftProviderEnabled =
     isMicrosoftMessagingEnabled || isMicrosoftCalendarEnabled;
 
-  useScopedHotkeys(
-    [Key.Enter],
-    async () => {
+  useHotkeysOnFocusedElement({
+    keys: Key.Enter,
+    callback: async () => {
       await continueWithoutSync();
     },
-    PageHotkeyScope.SyncEmail,
-    [continueWithoutSync],
-  );
+    focusId: PageFocusId.SyncEmail,
+    dependencies: [continueWithoutSync],
+  });
 
   return (
     <Modal.Content isVerticalCentered isHorizontalCentered>
@@ -119,7 +119,7 @@ export const SyncEmails = () => {
       <StyledProviderContainer>
         {isGoogleProviderEnabled && (
           <MainButton
-            title="Sync with Google"
+            title={t`Sync with Google`}
             onClick={() => handleButtonClick(ConnectedAccountProvider.GOOGLE)}
             width={200}
             Icon={() => <IconGoogle size={theme.icon.size.sm} />}
@@ -127,7 +127,7 @@ export const SyncEmails = () => {
         )}
         {isMicrosoftProviderEnabled && (
           <MainButton
-            title="Sync with Outlook"
+            title={t`Sync with Outlook`}
             onClick={() =>
               handleButtonClick(ConnectedAccountProvider.MICROSOFT)
             }
@@ -137,7 +137,7 @@ export const SyncEmails = () => {
         )}
         {!isMicrosoftProviderEnabled && !isGoogleProviderEnabled && (
           <MainButton
-            title="Continue"
+            title={t`Continue`}
             onClick={continueWithoutSync}
             width={144}
           />

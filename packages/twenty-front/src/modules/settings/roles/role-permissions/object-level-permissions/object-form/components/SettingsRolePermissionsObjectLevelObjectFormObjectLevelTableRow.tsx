@@ -1,8 +1,10 @@
+import { useUpsertObjectPermission } from '@/settings/roles/role-permissions/object-level-permissions/hooks/useUpsertObjectPermission';
 import { OverridableCheckbox } from '@/settings/roles/role-permissions/object-level-permissions/object-form/components/OverridableCheckbox';
+import { objectPermissionKeyToHumanReadable } from '@/settings/roles/role-permissions/object-level-permissions/utils/objectPermissionKeyToHumanReadableText';
 import { PermissionIcon } from '@/settings/roles/role-permissions/objects-permissions/components/PermissionIcon';
-import { SETTINGS_ROLE_OBJECT_LEVEL_PERMISSION_TO_ROLE_OBJECT_PERMISSION_MAPPING } from '@/settings/roles/role-permissions/objects-permissions/constants/settingsRoleObjectLevelPermissionToRoleObjectPermissionMapping';
-import { SettingsRoleObjectPermissionKey } from '@/settings/roles/role-permissions/objects-permissions/constants/settingsRoleObjectPermissionIconConfig';
-import { SettingsRolePermissionsObjectLevelPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
+import { SETTINGS_ROLE_OBJECT_LEVEL_PERMISSION_TO_ROLE_OBJECT_PERMISSION_MAPPING } from '@/settings/roles/role-permissions/objects-permissions/constants/SettingsRoleObjectLevelPermissionToRoleObjectPermissionMapping';
+import { type SettingsRoleObjectPermissionKey } from '@/settings/roles/role-permissions/objects-permissions/constants/SettingsRoleObjectPermissionIconConfig';
+import { type SettingsRolePermissionsObjectLevelPermission } from '@/settings/roles/role-permissions/objects-permissions/types/SettingsRolePermissionsObjectPermission';
 import { settingsDraftRoleFamilyState } from '@/settings/roles/states/settingsDraftRoleFamilyState';
 import { TableCell } from '@/ui/layout/table/components/TableCell';
 import { TableRow } from '@/ui/layout/table/components/TableRow';
@@ -10,12 +12,13 @@ import styled from '@emotion/styled';
 import { t } from '@lingui/core/macro';
 import { useRecoilValue } from 'recoil';
 import { isDefined } from 'twenty-shared/utils';
-import { ObjectPermission } from '~/generated-metadata/graphql';
+import { type ObjectPermission } from '~/generated-metadata/graphql';
 import type { Role } from '~/generated/graphql';
 
-const StyledTableRow = styled(TableRow)`
+const StyledTableRow = styled(TableRow)<{ isDisabled: boolean }>`
   align-items: center;
   display: flex;
+  cursor: ${({ isDisabled }) => (isDisabled ? 'default' : 'pointer')};
 `;
 
 const StyledPermissionCell = styled(TableCell)`
@@ -47,20 +50,22 @@ const StyledCheckboxCell = styled(TableCell)`
   align-items: center;
   display: flex;
   justify-content: flex-end;
-  padding-right: ${({ theme }) => theme.spacing(4)};
+  padding-right: ${({ theme }) => theme.spacing(1)};
 `;
 
 type OverridableCheckboxType = 'no_cta' | 'default' | 'override';
 
 type SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRowProps = {
+  objectMetadataItemId: string;
   permission: SettingsRolePermissionsObjectLevelPermission;
   isEditable: boolean;
-  settingsDraftRoleObjectPermissions: ObjectPermission;
+  settingsDraftRoleObjectPermissions: ObjectPermission | undefined;
   roleId: string;
 };
 
 export const SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRow =
   ({
+    objectMetadataItemId,
     permission,
     isEditable,
     settingsDraftRoleObjectPermissions,
@@ -76,7 +81,7 @@ export const SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRow =
       SETTINGS_ROLE_OBJECT_LEVEL_PERMISSION_TO_ROLE_OBJECT_PERMISSION_MAPPING;
 
     const settingsDraftRoleObjectPermissionValue =
-      settingsDraftRoleObjectPermissions[
+      settingsDraftRoleObjectPermissions?.[
         permission.key as keyof ObjectPermission
       ];
 
@@ -93,6 +98,15 @@ export const SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRow =
       settingsDraftRoleGlobalPermissionValue === true &&
       isChecked === false;
 
+    const isGranted =
+      isDefined(settingsDraftRoleObjectPermissionValue) &&
+      settingsDraftRoleGlobalPermissionValue === false &&
+      isChecked === true;
+
+    const isGrantedAndInherited =
+      settingsDraftRoleObjectPermissionValue !== false &&
+      settingsDraftRoleGlobalPermissionValue === true;
+
     let checkboxType: OverridableCheckboxType;
 
     if (
@@ -106,20 +120,32 @@ export const SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRow =
       checkboxType = 'default';
     }
 
+    const { upsertObjectPermission } = useUpsertObjectPermission({
+      roleId,
+    });
+
     const handleCheckboxChange = () => {
       if (!isEditable) return;
 
       if (checkboxType === 'default') {
-        permission.setValue(false);
+        upsertObjectPermission(objectMetadataItemId, permission.key, false);
       } else if (checkboxType === 'override') {
-        permission.setValue(null);
+        upsertObjectPermission(objectMetadataItemId, permission.key, null);
       } else if (checkboxType === 'no_cta') {
-        permission.setValue(!isChecked);
+        upsertObjectPermission(
+          objectMetadataItemId,
+          permission.key,
+          !isChecked,
+        );
       }
     };
 
+    const humanReadableAction = objectPermissionKeyToHumanReadable(
+      permission.key as SettingsRoleObjectPermissionKey,
+    );
+
     return (
-      <StyledTableRow>
+      <StyledTableRow onClick={handleCheckboxChange} isDisabled={!isEditable}>
         <StyledPermissionCell>
           <StyledPermissionContent>
             <PermissionIcon
@@ -134,10 +160,20 @@ export const SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableRow =
                 {' · '}
                 {t`Revoked for this object`}
               </>
+            ) : isGranted ? (
+              <>
+                {' · '}
+                {t`Granted for this object`}
+              </>
+            ) : isGrantedAndInherited ? (
+              <>
+                {' · '}
+                {t`This role can ${humanReadableAction} all records`}
+              </>
             ) : null}
           </StyledOverrideInfo>
         </StyledPermissionCell>
-        <StyledCheckboxCell>
+        <StyledCheckboxCell onClick={(e) => e.stopPropagation()}>
           <OverridableCheckbox
             onChange={handleCheckboxChange}
             disabled={!isEditable}

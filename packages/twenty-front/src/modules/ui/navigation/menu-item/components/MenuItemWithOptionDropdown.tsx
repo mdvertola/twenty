@@ -1,16 +1,20 @@
-import { SelectHotkeyScope } from '@/ui/input/types/SelectHotkeyScope';
 import { Dropdown } from '@/ui/layout/dropdown/components/Dropdown';
 import { useTheme } from '@emotion/react';
-import { Placement } from '@floating-ui/react';
-import { FunctionComponent, MouseEvent, ReactElement, ReactNode } from 'react';
+import { type Placement } from '@floating-ui/react';
+import {
+  type FunctionComponent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import {
   IconChevronRight,
-  IconComponent,
+  type IconComponent,
   IconDotsVertical,
 } from 'twenty-ui/display';
-import { LightIconButton, LightIconButtonProps } from 'twenty-ui/input';
+import { LightIconButton, type LightIconButtonProps } from 'twenty-ui/input';
 import {
-  MenuItemAccent,
+  type MenuItemAccent,
   MenuItemLeftContent,
   StyledHoverableMenuItemBase,
   StyledMenuItemLeftContent,
@@ -93,7 +97,6 @@ export const MenuItemWithOptionDropdown = ({
           dropdownPlacement={dropdownPlacement}
           dropdownComponents={dropdownContent}
           dropdownId={dropdownId}
-          dropdownHotkeyScope={{ scope: SelectHotkeyScope.Select }}
         />
       </div>
       {hasSubMenu && (

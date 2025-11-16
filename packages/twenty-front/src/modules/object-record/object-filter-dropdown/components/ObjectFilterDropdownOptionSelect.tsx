@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Key } from 'ts-key-enum';
 
-import { FieldMetadataItemOption } from '@/object-metadata/types/FieldMetadataItem';
+import { type FieldMetadataItemOption } from '@/object-metadata/types/FieldMetadataItem';
 import { useOptionsForSelect } from '@/object-record/object-filter-dropdown/hooks/useOptionsForSelect';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
-import { useDropdown } from '@/ui/layout/dropdown/hooks/useDropdown';
 import { SelectableList } from '@/ui/layout/selectable-list/components/SelectableList';
 
 import { useSelectableList } from '@/ui/layout/selectable-list/hooks/useSelectableList';
@@ -14,11 +13,12 @@ import { ObjectFilterDropdownComponentInstanceContext } from '@/object-record/ob
 import { fieldMetadataItemUsedInDropdownComponentSelector } from '@/object-record/object-filter-dropdown/states/fieldMetadataItemUsedInDropdownComponentSelector';
 import { objectFilterDropdownCurrentRecordFilterComponentState } from '@/object-record/object-filter-dropdown/states/objectFilterDropdownCurrentRecordFilterComponentState';
 import { objectFilterDropdownSearchInputComponentState } from '@/object-record/object-filter-dropdown/states/objectFilterDropdownSearchInputComponentState';
-import { SingleRecordPickerHotkeyScope } from '@/object-record/record-picker/single-record-picker/types/SingleRecordPickerHotkeyScope';
+import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
 import { selectedItemIdComponentState } from '@/ui/layout/selectable-list/states/selectedItemIdComponentState';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
+import { t } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
 import { MAX_OPTIONS_TO_DISPLAY } from 'twenty-shared/constants';
 import { isDefined } from 'twenty-shared/utils';
@@ -30,12 +30,16 @@ type SelectOptionForFilter = FieldMetadataItemOption & {
   isSelected: boolean;
 };
 
-export const ObjectFilterDropdownOptionSelect = () => {
-  const fieldMetadataItemUsedInDropdown = useRecoilComponentValueV2(
+export const ObjectFilterDropdownOptionSelect = ({
+  focusId,
+}: {
+  focusId: string;
+}) => {
+  const fieldMetadataItemUsedInDropdown = useRecoilComponentValue(
     fieldMetadataItemUsedInDropdownComponentSelector,
   );
 
-  const objectFilterDropdownSearchInput = useRecoilComponentValueV2(
+  const objectFilterDropdownSearchInput = useRecoilComponentValue(
     objectFilterDropdownSearchInputComponentState,
   );
 
@@ -43,7 +47,7 @@ export const ObjectFilterDropdownOptionSelect = () => {
     ObjectFilterDropdownComponentInstanceContext,
   );
 
-  const objectFilterDropdownCurrentRecordFilter = useRecoilComponentValueV2(
+  const objectFilterDropdownCurrentRecordFilter = useRecoilComponentValue(
     objectFilterDropdownCurrentRecordFilterComponentState,
   );
 
@@ -60,11 +64,11 @@ export const ObjectFilterDropdownOptionSelect = () => {
     [objectFilterDropdownCurrentRecordFilter?.value],
   );
 
-  const { closeDropdown } = useDropdown();
+  const { closeDropdown } = useCloseDropdown();
 
   const { resetSelectedItem } = useSelectableList(componentInstanceId);
 
-  const selectedItemId = useRecoilComponentValueV2(
+  const selectedItemId = useRecoilComponentValue(
     selectedItemIdComponentState,
     componentInstanceId,
   );
@@ -92,15 +96,15 @@ export const ObjectFilterDropdownOptionSelect = () => {
     }
   }, [selectedOptions, selectOptions]);
 
-  useScopedHotkeys(
-    [Key.Escape],
-    () => {
+  useHotkeysOnFocusedElement({
+    keys: [Key.Escape],
+    callback: () => {
       closeDropdown();
       resetSelectedItem();
     },
-    SingleRecordPickerHotkeyScope.SingleRecordPicker,
-    [closeDropdown, resetSelectedItem],
-  );
+    focusId,
+    dependencies: [closeDropdown, resetSelectedItem],
+  });
 
   const handleMultipleOptionSelectChange = (
     optionChanged: SelectOptionForFilter,
@@ -142,30 +146,34 @@ export const ObjectFilterDropdownOptionSelect = () => {
   );
 
   const showNoResult = optionsInDropdown?.length === 0;
+
   const objectRecordsIds = optionsInDropdown.map((option) => option.id);
 
   return (
     <SelectableList
       selectableListInstanceId={componentInstanceId}
       selectableItemIdArray={objectRecordsIds}
-      hotkeyScope={SingleRecordPickerHotkeyScope.SingleRecordPicker}
+      focusId={focusId}
     >
       <DropdownMenuItemsContainer hasMaxHeight>
-        {optionsInDropdown?.map((option) => (
-          <MenuItemMultiSelect
-            key={option.id}
-            selected={option.isSelected}
-            isKeySelected={option.id === selectedItemId}
-            onSelectChange={(selected) =>
-              handleMultipleOptionSelectChange(option, selected)
-            }
-            text={option.label}
-            color={option.color}
-            className=""
-          />
-        ))}
+        {showNoResult ? (
+          <MenuItem text={t`No results`} />
+        ) : (
+          optionsInDropdown?.map((option) => (
+            <MenuItemMultiSelect
+              key={option.id}
+              selected={option.isSelected}
+              isKeySelected={option.id === selectedItemId}
+              onSelectChange={(selected) =>
+                handleMultipleOptionSelectChange(option, selected)
+              }
+              text={option.label}
+              color={option.color}
+              className=""
+            />
+          ))
+        )}
       </DropdownMenuItemsContainer>
-      {showNoResult && <MenuItem text="No results" />}
     </SelectableList>
   );
 };

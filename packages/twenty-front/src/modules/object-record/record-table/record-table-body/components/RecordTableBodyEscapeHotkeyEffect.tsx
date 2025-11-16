@@ -1,37 +1,33 @@
 import { Key } from 'ts-key-enum';
 
-import { RecordIndexHotkeyScope } from '@/object-record/record-index/types/RecordIndexHotkeyScope';
-import { useRecordTableContextOrThrow } from '@/object-record/record-table/contexts/RecordTableContext';
-import { useFocusedRecordTableRow } from '@/object-record/record-table/hooks/useFocusedRecordTableRow';
-import { useRecordTable } from '@/object-record/record-table/hooks/useRecordTable';
+import { useResetTableRowSelection } from '@/object-record/record-table/hooks/internal/useResetTableRowSelection';
 import { isAtLeastOneTableRowSelectedSelector } from '@/object-record/record-table/record-table-row/states/isAtLeastOneTableRowSelectedSelector';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { PageFocusId } from '@/types/PageFocusId';
+import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 
 export const RecordTableBodyEscapeHotkeyEffect = () => {
-  const { recordTableId } = useRecordTableContextOrThrow();
+  const { resetTableRowSelection } = useResetTableRowSelection();
 
-  const { resetTableRowSelection } = useRecordTable({
-    recordTableId,
-  });
-
-  const { unfocusRecordTableRow } = useFocusedRecordTableRow(recordTableId);
-
-  const isAtLeastOneRecordSelected = useRecoilComponentValueV2(
+  const isAtLeastOneRecordSelected = useRecoilComponentValue(
     isAtLeastOneTableRowSelectedSelector,
   );
 
-  useScopedHotkeys(
-    [Key.Escape],
-    () => {
-      unfocusRecordTableRow();
-      if (isAtLeastOneRecordSelected) {
-        resetTableRowSelection();
-      }
+  const handleEscape = () => {
+    if (isAtLeastOneRecordSelected) {
+      resetTableRowSelection();
+    }
+  };
+
+  useHotkeysOnFocusedElement({
+    keys: [Key.Escape],
+    callback: handleEscape,
+    focusId: PageFocusId.RecordIndex,
+    dependencies: [handleEscape],
+    options: {
+      preventDefault: true,
     },
-    RecordIndexHotkeyScope.RecordIndex,
-    [isAtLeastOneRecordSelected, resetTableRowSelection, unfocusRecordTableRow],
-  );
+  });
 
   return null;
 };

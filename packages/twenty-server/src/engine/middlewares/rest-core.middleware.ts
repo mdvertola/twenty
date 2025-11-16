@@ -1,6 +1,6 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, type NestMiddleware } from '@nestjs/common';
 
-import { NextFunction, Request, Response } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 
 import { MiddlewareService } from 'src/engine/middlewares/middleware.service';
 
@@ -10,7 +10,7 @@ export class RestCoreMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
-      await this.middlewareService.authenticateRestRequest(req);
+      await this.middlewareService.hydrateRestRequest(req);
     } catch (error) {
       this.middlewareService.writeRestResponseOnExceptionCaught(res, error);
 

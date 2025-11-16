@@ -2,8 +2,8 @@ import { renderHook } from '@testing-library/react';
 import * as reactRouterDom from 'react-router-dom';
 import { RecoilRoot } from 'recoil';
 
-import { AppPath } from '@/types/AppPath';
 import { useShowAuthModal } from '@/ui/layout/hooks/useShowAuthModal';
+import { AppPath } from 'twenty-shared/types';
 import { isMatchingLocation } from '~/utils/isMatchingLocation';
 
 jest.mock('react-router-dom', () => ({
@@ -43,6 +43,8 @@ const testCases = [
   { loc: AppPath.InviteTeam, res: true },
   { loc: AppPath.PlanRequired, res: true },
   { loc: AppPath.PlanRequiredSuccess, res: true },
+  { loc: AppPath.BookCallDecision, res: true },
+  { loc: AppPath.BookCall, res: true },
 
   { loc: AppPath.Index, res: false },
   { loc: AppPath.RecordIndexPage, res: false },

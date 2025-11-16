@@ -1,8 +1,9 @@
 import styled from '@emotion/styled';
 
-import { EmailThreadMessage } from '@/activities/emails/types/EmailThreadMessage';
+import { type EmailThreadMessage } from '@/activities/emails/types/EmailThreadMessage';
 import { EventCardMessageBodyNotShared } from '@/activities/timeline-activities/rows/message/components/EventCardMessageBodyNotShared';
 import { EventCardMessageForbidden } from '@/activities/timeline-activities/rows/message/components/EventCardMessageForbidden';
+import { useOpenEmailThreadInCommandMenu } from '@/command-menu/hooks/useOpenEmailThreadInCommandMenu';
 import { CoreObjectNameSingular } from '@/object-metadata/types/CoreObjectNameSingular';
 import { useFindOneRecord } from '@/object-record/hooks/useFindOneRecord';
 import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useUpsertRecordsInStore';
@@ -11,7 +12,8 @@ import { FIELD_RESTRICTED_ADDITIONAL_PERMISSIONS_REQUIRED } from 'twenty-shared/
 import { isDefined } from 'twenty-shared/utils';
 import { OverflowingTextWithTooltip } from 'twenty-ui/display';
 
-const StyledEventCardMessageContainer = styled.div`
+const StyledEventCardMessageContainer = styled.div<{ canOpen?: boolean }>`
+  cursor: ${({ canOpen }) => (canOpen ? 'pointer' : 'not-allowed')};
   display: flex;
   flex-direction: column;
   width: 380px;
@@ -57,7 +59,8 @@ export const EventCardMessage = ({
   messageId: string;
   authorFullName: string;
 }) => {
-  const { upsertRecords } = useUpsertRecordsInStore();
+  const { upsertRecordsInStore } = useUpsertRecordsInStore();
+  const { openEmailThreadInCommandMenu } = useOpenEmailThreadInCommandMenu();
 
   const {
     record: message,
@@ -77,7 +80,7 @@ export const EventCardMessage = ({
       },
     },
     onCompleted: (data) => {
-      upsertRecords([data]);
+      upsertRecordsInStore([data]);
     },
   });
 
@@ -122,8 +125,17 @@ export const EventCardMessage = ({
     .filter((handle) => isDefined(handle) && handle !== '')
     .join(', ');
 
+  const canOpen =
+    message.subject !== FIELD_RESTRICTED_ADDITIONAL_PERMISSIONS_REQUIRED;
+
+  const handleClick = () => {
+    if (canOpen && isDefined(message.messageThreadId)) {
+      openEmailThreadInCommandMenu(message.messageThreadId);
+    }
+  };
+
   return (
-    <StyledEventCardMessageContainer>
+    <StyledEventCardMessageContainer canOpen={canOpen} onClick={handleClick}>
       <StyledEmailContent>
         <StyledEmailTop>
           <StyledEmailTitle>

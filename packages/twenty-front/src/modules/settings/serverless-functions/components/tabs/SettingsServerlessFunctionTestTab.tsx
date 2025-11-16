@@ -1,15 +1,10 @@
 import { ServerlessFunctionExecutionResult } from '@/serverless-functions/components/ServerlessFunctionExecutionResult';
-import { SettingsServerlessFunctionHotkeyScope } from '@/settings/serverless-functions/types/SettingsServerlessFunctionHotKeyScope';
-import { SettingsPath } from '@/types/SettingsPath';
-import { useScopedHotkeys } from '@/ui/utilities/hotkey/hooks/useScopedHotkeys';
-import { serverlessFunctionTestDataFamilyState } from '@/workflow/states/serverlessFunctionTestDataFamilyState';
+import { serverlessFunctionTestDataFamilyState } from '@/workflow/workflow-steps/workflow-actions/code-action/states/serverlessFunctionTestDataFamilyState';
 import styled from '@emotion/styled';
+import { useLingui } from '@lingui/react/macro';
 import { useRecoilState } from 'recoil';
-import { Key } from 'ts-key-enum';
-import { useHotkeyScopeOnMount } from '~/hooks/useHotkeyScopeOnMount';
-import { useNavigateSettings } from '~/hooks/useNavigateSettings';
-import { Button, CodeEditor, CoreEditorHeader } from 'twenty-ui/input';
 import { H2Title, IconPlayerPlay } from 'twenty-ui/display';
+import { Button, CodeEditor, CoreEditorHeader } from 'twenty-ui/input';
 import { Section } from 'twenty-ui/layout';
 
 const StyledInputsContainer = styled.div`
@@ -26,10 +21,13 @@ const StyledCodeEditorContainer = styled.div`
 export const SettingsServerlessFunctionTestTab = ({
   handleExecute,
   serverlessFunctionId,
+  isTesting = false,
 }: {
   handleExecute: () => void;
   serverlessFunctionId: string;
+  isTesting?: boolean;
 }) => {
+  const { t } = useLingui();
   const [serverlessFunctionTestData, setServerlessFunctionTestData] =
     useRecoilState(serverlessFunctionTestDataFamilyState(serverlessFunctionId));
 
@@ -40,37 +38,25 @@ export const SettingsServerlessFunctionTestTab = ({
     }));
   };
 
-  const navigate = useNavigateSettings();
-  useHotkeyScopeOnMount(
-    SettingsServerlessFunctionHotkeyScope.ServerlessFunctionTestTab,
-  );
-
-  useScopedHotkeys(
-    [Key.Escape],
-    () => {
-      navigate(SettingsPath.ServerlessFunctions);
-    },
-    SettingsServerlessFunctionHotkeyScope.ServerlessFunctionTestTab,
-  );
-
   return (
     <Section>
       <H2Title
-        title="Test your function"
-        description='Insert a JSON input, then press "Run" to test your function.'
+        title={t`Test your function`}
+        description={t`Insert a JSON input, then press "Run" to test your function.`}
       />
       <StyledInputsContainer>
         <StyledCodeEditorContainer>
           <CoreEditorHeader
-            title={'Input'}
+            title={t`Input`}
             rightNodes={[
               <Button
-                title="Run Function"
+                title={t`Run Function`}
                 variant="primary"
                 accent="blue"
                 size="small"
                 Icon={IconPlayerPlay}
                 onClick={handleExecute}
+                disabled={isTesting}
               />,
             ]}
           />
@@ -84,6 +70,7 @@ export const SettingsServerlessFunctionTestTab = ({
         </StyledCodeEditorContainer>
         <ServerlessFunctionExecutionResult
           serverlessFunctionTestData={serverlessFunctionTestData}
+          isTesting={isTesting}
         />
       </StyledInputsContainer>
     </Section>

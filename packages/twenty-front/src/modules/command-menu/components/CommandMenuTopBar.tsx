@@ -12,7 +12,7 @@ import { commandMenuPageState } from '@/command-menu/states/commandMenuPageState
 import { commandMenuSearchState } from '@/command-menu/states/commandMenuSearchState';
 import { CommandMenuPages } from '@/command-menu/types/CommandMenuPages';
 import { contextStoreCurrentObjectMetadataItemIdComponentState } from '@/context-store/states/contextStoreCurrentObjectMetadataItemIdComponentState';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { useRecoilComponentValue } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValue';
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { useLingui } from '@lingui/react/macro';
@@ -20,6 +20,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useRecoilState, useRecoilValue } from 'recoil';
+import { AppBasePath } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { IconChevronLeft, IconX } from 'twenty-ui/display';
 import { Button } from 'twenty-ui/input';
@@ -92,7 +93,7 @@ export const CommandMenuTopBar = () => {
 
   const { goBackFromCommandMenu } = useCommandMenuHistory();
 
-  const contextStoreCurrentObjectMetadataItemId = useRecoilComponentValueV2(
+  const contextStoreCurrentObjectMetadataItemId = useRecoilComponentValue(
     contextStoreCurrentObjectMetadataItemIdComponentState,
     COMMAND_MENU_COMPONENT_INSTANCE_ID,
   );
@@ -105,8 +106,8 @@ export const CommandMenuTopBar = () => {
 
   const location = useLocation();
   const isButtonVisible =
-    !location.pathname.startsWith('/objects/') &&
-    !location.pathname.startsWith('/object/');
+    !location.pathname.startsWith(`${AppBasePath.Root}objects/`) &&
+    !location.pathname.startsWith(`${AppBasePath.Root}object/`);
 
   const backButtonAnimationDuration =
     contextChips.length > 0 ? theme.animation.duration.instant : 0;
@@ -158,7 +159,7 @@ export const CommandMenuTopBar = () => {
           <Button
             Icon={IconX}
             dataTestId="page-header-close-command-menu-button"
-            size={'small'}
+            size="small"
             variant="secondary"
             accent="default"
             hotkeys={[getOsControlSymbol(), 'K']}

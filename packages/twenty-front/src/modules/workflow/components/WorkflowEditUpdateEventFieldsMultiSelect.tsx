@@ -1,10 +1,12 @@
-import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
+import { type ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
 import { formatFieldMetadataItemAsFieldDefinition } from '@/object-metadata/utils/formatFieldMetadataItemAsFieldDefinition';
-import { FormMultiSelectFieldInput } from '@/object-record/record-field/form-types/components/FormMultiSelectFieldInput';
-import { FieldMultiSelectValue } from '@/object-record/record-field/types/FieldMetadata';
+import { FormMultiSelectFieldInput } from '@/object-record/record-field/ui/form-types/components/FormMultiSelectFieldInput';
+import { type FieldMultiSelectValue } from '@/object-record/record-field/ui/types/FieldMetadata';
+import { isFieldRelation } from '@/object-record/record-field/ui/types/guards/isFieldRelation';
+import { shouldDisplayFormField } from '@/workflow/workflow-steps/workflow-actions/utils/shouldDisplayFormField';
 import { isDefined } from 'twenty-shared/utils';
 import { useIcons } from 'twenty-ui/display';
-import { shouldDisplayFormField } from '@/workflow/workflow-steps/workflow-actions/utils/shouldDisplayFormField';
+import { RelationType } from '~/generated-metadata/graphql';
 
 export const WorkflowFieldsMultiSelect = ({
   label,
@@ -13,6 +15,7 @@ export const WorkflowFieldsMultiSelect = ({
   readonly,
   defaultFields,
   placeholder,
+  hint,
 }: {
   label: string;
   placeholder: string;
@@ -20,6 +23,7 @@ export const WorkflowFieldsMultiSelect = ({
   handleFieldsChange: (field: FieldMultiSelectValue | string) => void;
   readonly: boolean;
   defaultFields: string[] | undefined | null;
+  hint?: string;
 }) => {
   const { getIcon } = useIcons();
 
@@ -50,15 +54,26 @@ export const WorkflowFieldsMultiSelect = ({
       testId="workflow-fields-multi-select"
       label={label}
       defaultValue={defaultFields}
-      options={inlineFieldDefinitions.map((field) => ({
-        label: field.label,
-        value: field.metadata.fieldName,
-        icon: getIcon(field.iconName),
-        color: 'gray',
-      }))}
+      options={inlineFieldDefinitions.map((field) => {
+        const isFieldRelationManyToOne =
+          isFieldRelation(field) &&
+          field.metadata.relationType === RelationType.MANY_TO_ONE;
+
+        const value = isFieldRelationManyToOne
+          ? `${field.metadata.fieldName}Id`
+          : field.metadata.fieldName;
+
+        return {
+          label: field.label,
+          value,
+          Icon: getIcon(field.iconName),
+          color: 'gray',
+        };
+      })}
       onChange={handleFieldsChange}
       placeholder={placeholder}
       readonly={readonly}
+      hint={hint}
     />
   );
 };

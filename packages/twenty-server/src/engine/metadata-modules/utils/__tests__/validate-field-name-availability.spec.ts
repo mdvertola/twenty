@@ -1,4 +1,4 @@
-import { EachTestingContext } from 'twenty-shared/testing';
+import { type EachTestingContext } from 'twenty-shared/testing';
 
 import {
   FIELD_ACTOR_MOCK_NAME,
@@ -6,7 +6,7 @@ import {
   FIELD_CURRENCY_MOCK_NAME,
   FIELD_FULL_NAME_MOCK_NAME,
   FIELD_LINKS_MOCK_NAME,
-  objectMetadataItemMock,
+  objectMetadataMapItemMock,
 } from 'src/engine/api/__mocks__/object-metadata-item.mock';
 import { validateFieldNameAvailabilityOrThrow } from 'src/engine/metadata-modules/utils/validate-field-name-availability.utils';
 
@@ -57,18 +57,22 @@ const validateFieldNameAvailabilityTestCases: ValidateFieldNameAvailabilityTestC
   ];
 
 describe('validateFieldNameAvailabilityOrThrow', () => {
-  const objectMetadata = objectMetadataItemMock;
-
   it.each(validateFieldNameAvailabilityTestCases)(
     '$title',
     ({ context: { input, shouldNotThrow } }) => {
       if (shouldNotThrow) {
         expect(() =>
-          validateFieldNameAvailabilityOrThrow(input, objectMetadata),
+          validateFieldNameAvailabilityOrThrow({
+            name: input,
+            fieldMetadataMapById: objectMetadataMapItemMock.fieldsById,
+          }),
         ).not.toThrow();
       } else {
         expect(() =>
-          validateFieldNameAvailabilityOrThrow(input, objectMetadata),
+          validateFieldNameAvailabilityOrThrow({
+            name: input,
+            fieldMetadataMapById: objectMetadataMapItemMock.fieldsById,
+          }),
         ).toThrowErrorMatchingSnapshot();
       }
     },

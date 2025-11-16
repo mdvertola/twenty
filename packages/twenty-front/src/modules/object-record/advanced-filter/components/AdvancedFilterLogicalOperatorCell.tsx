@@ -1,5 +1,5 @@
 import { AdvancedFilterLogicalOperatorDropdown } from '@/object-record/advanced-filter/components/AdvancedFilterLogicalOperatorDropdown';
-import { RecordFilterGroup } from '@/object-record/record-filter-group/types/RecordFilterGroup';
+import { type RecordFilterGroup } from '@/object-record/record-filter-group/types/RecordFilterGroup';
 
 import styled from '@emotion/styled';
 import { capitalize } from 'twenty-shared/utils';
@@ -27,18 +27,20 @@ type AdvancedFilterLogicalOperatorCellProps = {
 export const AdvancedFilterLogicalOperatorCell = ({
   index,
   recordFilterGroup,
-}: AdvancedFilterLogicalOperatorCellProps) => (
-  <StyledContainer>
-    {index === 0 ? (
-      <StyledText>Where</StyledText>
-    ) : index === 1 ? (
-      <AdvancedFilterLogicalOperatorDropdown
-        recordFilterGroup={recordFilterGroup}
-      />
-    ) : (
-      <StyledText>
-        {capitalize(recordFilterGroup.logicalOperator.toLowerCase())}
-      </StyledText>
-    )}
-  </StyledContainer>
-);
+}: AdvancedFilterLogicalOperatorCellProps) => {
+  return (
+    <StyledContainer>
+      {index === 0 ? (
+        <StyledText>Where</StyledText>
+      ) : index === 1 ? (
+        <AdvancedFilterLogicalOperatorDropdown
+          recordFilterGroup={recordFilterGroup}
+        />
+      ) : (
+        <StyledText>
+          {capitalize(recordFilterGroup.logicalOperator.toLowerCase())}
+        </StyledText>
+      )}
+    </StyledContainer>
+  );
+};
