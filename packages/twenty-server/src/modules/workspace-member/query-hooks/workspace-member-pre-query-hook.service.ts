@@ -15,6 +15,43 @@ import { PermissionsService } from 'src/engine/metadata-modules/permissions/perm
 export class WorkspaceMemberPreQueryHookService {
   constructor(private readonly permissionsService: PermissionsService) {}
 
+  async validateWorkspaceMemberCreatePermissionOrThrow({
+    userWorkspaceId,
+    workspaceId,
+    apiKey,
+  }: {
+    userWorkspaceId?: string;
+    workspaceId: string;
+    apiKey?: ApiKeyEntity | null;
+  }) {
+    if (isDefined(apiKey)) {
+      return;
+    }
+
+    if (!userWorkspaceId) {
+      throw new PermissionsException(
+        PermissionsExceptionMessage.USER_WORKSPACE_NOT_FOUND,
+        PermissionsExceptionCode.USER_WORKSPACE_NOT_FOUND,
+      );
+    }
+
+    if (
+      await this.permissionsService.userHasWorkspaceSettingPermission({
+        userWorkspaceId,
+        workspaceId,
+        setting: PermissionFlagType.WORKSPACE_MEMBERS,
+        apiKeyId: apiKey ?? undefined,
+      })
+    ) {
+      return;
+    }
+
+    throw new PermissionsException(
+      PermissionsExceptionMessage.PERMISSION_DENIED,
+      PermissionsExceptionCode.PERMISSION_DENIED,
+    );
+  }
+
   async validateWorkspaceMemberUpdatePermissionOrThrow({
     userWorkspaceId,
     workspaceMemberId,

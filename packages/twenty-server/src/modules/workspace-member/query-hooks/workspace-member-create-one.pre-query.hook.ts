@@ -5,27 +5,34 @@ import { type CreateOneResolverArgs } from 'src/engine/api/graphql/workspace-res
 
 import { WorkspaceQueryHook } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/decorators/workspace-query-hook.decorator';
 import { type AuthContext } from 'src/engine/core-modules/auth/types/auth-context.type';
-import {
-  PermissionsException,
-  PermissionsExceptionCode,
-  PermissionsExceptionMessage,
-} from 'src/engine/metadata-modules/permissions/permissions.exception';
+import { WorkspaceMemberPreQueryHookService } from 'src/modules/workspace-member/query-hooks/workspace-member-pre-query-hook.service';
 import { WorkspaceNotFoundDefaultError } from 'src/engine/core-modules/workspace/workspace.exception';
 
 @WorkspaceQueryHook(`workspaceMember.createOne`)
 export class WorkspaceMemberCreateOnePreQueryHook
   implements WorkspacePreQueryHookInstance
 {
-  constructor() {}
+  constructor(
+    private readonly workspaceMemberPreQueryHookService: WorkspaceMemberPreQueryHookService,
+  ) {}
 
-  async execute(authContext: AuthContext): Promise<CreateOneResolverArgs> {
+  async execute(
+    authContext: AuthContext,
+    _objectName: string,
+    payload: CreateOneResolverArgs,
+  ): Promise<CreateOneResolverArgs> {
     const workspace = authContext.workspace;
 
     assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
 
-    throw new PermissionsException(
-      PermissionsExceptionMessage.PERMISSION_DENIED,
-      PermissionsExceptionCode.PERMISSION_DENIED,
+    await this.workspaceMemberPreQueryHookService.validateWorkspaceMemberCreatePermissionOrThrow(
+      {
+        userWorkspaceId: authContext.userWorkspaceId,
+        workspaceId: workspace.id,
+        apiKey: authContext.apiKey,
+      },
     );
+
+    return payload;
   }
 }
